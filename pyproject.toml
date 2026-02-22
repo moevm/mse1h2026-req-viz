@@ -1,0 +1,19 @@
+[project]
+name = "mse1h2026-req-viz"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Polina Kurkina",email = "Polina.Kurkina@oktetlabs.ru"}
+]
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi (>=0.129.2,<0.130.0)",
+    "uvicorn (>=0.41.0,<0.42.0)",
+    "pydantic (>=2.12.5,<3.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
