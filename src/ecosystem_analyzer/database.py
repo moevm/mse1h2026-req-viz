@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Dict, Optional
-from models import GraphResponse
+from .models import GraphResponse
 import uuid
 
 """ DB stub """

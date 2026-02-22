@@ -1,2 +1,2 @@
 #!/bin/bash
-uvicorn main:app --reload --port 8000
+uvicorn src.ecosystem_analyzer.main:app --reload --port 8000

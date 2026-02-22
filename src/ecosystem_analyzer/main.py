@@ -4,9 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 import time
 
-from models import GraphResponse
-from database import db
-from parser import parser
+from .models import GraphResponse
+from .database import db
+from .parser import parser
 
 app = FastAPI()
 

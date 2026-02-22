@@ -1,6 +1,6 @@
 import time
 import random
-from models import GraphResponse, Node, Edge, Statistics
+from .models import GraphResponse, Statistics
 from typing import Optional
 
 """ Parser stub """
