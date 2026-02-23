@@ -214,33 +214,8 @@ class GraphService:
         return created
 
     def clear_all(self) -> None:
-        # TODO: remove or move to repository
-        self._repo._conn.execute_write("MATCH (n) DETACH DELETE n")
+        self._repo.clear_all()
         logger.warning("Cleared all data from the database.")
 
     def get_stats(self) -> dict[str, int]:
-        # TODO: remove or move to repository
-        node_count_records = self._repo._conn.execute_read(
-            "MATCH (n:_Node) RETURN count(n) AS count"
-        )
-        rel_count_records = self._repo._conn.execute_read(
-            "MATCH (:_Node)-[r]-(:_Node) RETURN count(r) AS count"
-        )
-        label_records = self._repo._conn.execute_read(
-            """
-            MATCH (n:_Node)
-            WITH labels(n) AS node_labels
-            UNWIND node_labels AS label
-            WITH label WHERE label <> '_Node'
-            RETURN label, count(*) AS count
-            ORDER BY count DESC
-            """
-        )
-
-        return {
-            "total_nodes": node_count_records[0]["count"] if node_count_records else 0,
-            "total_relationships": rel_count_records[0]["count"]
-            if rel_count_records
-            else 0,
-            "labels": {r["label"]: r["count"] for r in label_records},
-        }
+        return self._repo.get_stats()
