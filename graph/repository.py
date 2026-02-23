@@ -188,7 +188,7 @@ class GraphRepository:
                 source.uid AS source_uid,
                 target.uid AS target_uid,
                 type(r) AS rel_type,
-                r AS rel
+                properties(r) AS rel
         """
         params: dict[str, Any] = {
             "source_uid": data.source_uid,
@@ -241,7 +241,7 @@ class GraphRepository:
                     source.uid AS source_uid,
                     target.uid AS target_uid,
                     type(r) AS rel_type,
-                    r AS rel
+                    properties(r) AS rel
                 ORDER BY r.weight DESC
                 SKIP $offset
                 LIMIT $limit
@@ -286,7 +286,7 @@ class GraphRepository:
                     source.uid AS source_uid,
                     target.uid AS target_uid,
                     type(r) AS rel_type,
-                    r AS rel
+                    properties(r) AS rel
             """
 
         records = self._conn.execute_write(query, params)
@@ -321,7 +321,7 @@ class GraphRepository:
         return self._get_filtered_subgraph(sg_filter)
 
     def _get_neighborhood(self, sg_filter: SubgraphFilter) -> SubgraphResponse:
-        where_clauses: list[str] = []
+        node_where_clauses: list[str] = []
         params: dict[str, Any] = {
             "center_uid": sg_filter.center_uid,
             "limit": sg_filter.limit,
@@ -329,59 +329,94 @@ class GraphRepository:
 
         if sg_filter.node_filter:
             nf = sg_filter.node_filter
+            node_conditions = []
+
             if nf.labels:
-                label_checks = [f"m:`{label}`" for label in nf.labels]
-                where_clauses.append(f"({' OR '.join(label_checks)})")
+                label_conditions = [f"node:`{label}`" for label in nf.labels]
+                node_conditions.append(f"({' OR '.join(label_conditions)})")
+
             if nf.name_contains:
-                where_clauses.append("toLower(m.name) CONTAINS toLower($name_contains)")
+                node_conditions.append(
+                    "toLower(node.name) CONTAINS toLower($name_contains)"
+                )
                 params["name_contains"] = nf.name_contains
+
             if nf.source:
-                where_clauses.append("m.source = $node_source")
+                node_conditions.append("node.source = $node_source")
                 params["node_source"] = nf.source
 
+            if node_conditions:
+                node_where_clauses.append(f"({' AND '.join(node_conditions)})")
+
+            if nf.properties_match:
+                for i, (key, value) in enumerate(nf.properties_match.items()):
+                    param_name = f"prop_{i}"
+                    node_conditions.append(f"node.`{key}` = ${param_name}")
+                    params[param_name] = value
+
         rel_type_filter = ""
+        rel_where_clauses: list[str] = []
+
         if sg_filter.rel_filter:
             rf = sg_filter.rel_filter
             if rf.rel_types:
                 rel_type_filter = ":" + "|".join(rf.rel_types)
             if rf.weight_min is not None:
-                where_clauses.append(
-                    "ALL(rel IN relationships(path) WHERE rel.weight >= $weight_min)"
-                )
+                rel_where_clauses.append("rel.weight >= $weight_min")
                 params["weight_min"] = rf.weight_min
             if rf.weight_max is not None:
-                where_clauses.append(
-                    "ALL(rel IN relationships(path) WHERE rel.weight <= $weight_max)"
-                )
+                rel_where_clauses.append("rel.weight <= $weight_max")
                 params["weight_max"] = rf.weight_max
+            if rf.source:
+                rel_where_clauses.append("rel.source = $rel_source")
+                params["rel_source"] = rf.source
 
-        where = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+        path_conditions = []
+        if node_where_clauses:
+            conditions = " AND ".join(node_where_clauses)
+            path_conditions.append(f"ALL(node IN nodes(path)[1..] WHERE {conditions})")
+        if rel_where_clauses:
+            conditions = " AND ".join(rel_where_clauses)
+            path_conditions.append(
+                f"ALL(rel IN relationships(path) WHERE {conditions})"
+            )
 
+        where = f"WHERE {' AND '.join(path_conditions)}" if path_conditions else ""
         depth = sg_filter.depth
 
         query = f"""
-                MATCH (center:_Node {{uid: $center_uid}})
-                MATCH path = (center)-[{rel_type_filter}*1..{depth}]-(m:_Node)
-                {where}
-                WITH DISTINCT m, path
-                LIMIT $limit
-                WITH collect(DISTINCT m) AS neighbors,
-                     collect(path) AS paths
-                MATCH (center:_Node {{uid: $center_uid}})
-                WITH [center] + neighbors AS all_nodes, paths
-                UNWIND all_nodes AS node
-                WITH collect(DISTINCT node) AS unique_nodes, paths
-                UNWIND paths AS p
-                UNWIND relationships(p) AS r
-                WITH unique_nodes,
-                     collect(DISTINCT {{
-                         source_uid: startNode(r).uid,
-                         target_uid: endNode(r).uid,
-                         rel_type: type(r),
-                         rel: r
-                     }}) AS unique_rels
-                RETURN unique_nodes, unique_rels
-            """
+            MATCH (center:_Node {{uid: $center_uid}})
+            MATCH path = (center)-[{rel_type_filter}*1..{depth}]-(m:_Node)
+            {where}
+            WITH DISTINCT m, path, center
+            LIMIT $limit
+
+            WITH collect(DISTINCT center) + collect(DISTINCT m) AS all_nodes,
+            collect(path) AS paths
+
+            UNWIND all_nodes AS node
+            WITH collect(DISTINCT {{
+                uid: node.uid,
+                name: node.name,
+                description: node.description,
+                source: node.source,
+                created_at: node.created_at,
+                updated_at: node.updated_at,
+                labels: [l IN labels(node) WHERE l <> '_Node'],
+                props: properties(node)
+            }}) AS unique_nodes, paths
+
+            UNWIND paths AS p
+            UNWIND relationships(p) AS r
+            WITH unique_nodes,
+                 collect(DISTINCT {{
+                     source_uid: startNode(r).uid,
+                     target_uid: endNode(r).uid,
+                     rel_type: type(r),
+                     rel: properties(r)
+                 }}) AS unique_rels
+            RETURN unique_nodes, unique_rels
+        """
 
         records = self._conn.execute_read(query, params)
         return self._build_subgraph_response(records)
@@ -425,6 +460,7 @@ class GraphRepository:
             MATCH (n:_Node)
             {node_where_str}
             WITH collect(DISTINCT n)[..$limit] AS filtered_nodes
+
             UNWIND filtered_nodes AS n
             OPTIONAL MATCH (n)-[r{rel_type_filter}]-(m:_Node)
             {optional_match_where_str}
@@ -433,10 +469,23 @@ class GraphRepository:
                      source_uid: startNode(r).uid,
                      target_uid: endNode(r).uid,
                      rel_type: type(r),
-                     rel: r
+                     rel: properties(r)
                  }}) AS rels
-            RETURN filtered_nodes AS unique_nodes,
-                   [r IN rels WHERE r.rel_type IS NOT NULL] AS unique_rels
+
+            UNWIND filtered_nodes AS n
+            WITH collect(DISTINCT {{
+                uid: n.uid,
+                name: n.name,
+                description: n.description,
+                source: n.source,
+                created_at: n.created_at,
+                updated_at: n.updated_at,
+                labels: [l IN labels(n) WHERE l <> '_Node'],
+                props: properties(n)
+            }}) AS unique_nodes,
+            [r IN rels WHERE r.rel_type IS NOT NULL] AS unique_rels
+
+            RETURN unique_nodes, unique_rels
         """
 
         records = self._conn.execute_read(query, params)
@@ -497,54 +546,55 @@ class GraphRepository:
         raw_rels = record.get("unique_rels", [])
 
         nodes: list[NodeResponse] = []
-        for node in raw_nodes:
-            node_labels = list(node.labels) if hasattr(node, "labels") else []
-            clean_labels = [label for label in node_labels if label != "_Node"]
-            label = clean_labels[0] if clean_labels else "Unknown"
+        for node_data in raw_nodes:
+            if isinstance(node_data, dict):
+                node_labels = node_data.get("labels", [])
+                clean_labels = [label for label in node_labels if label != "_Node"]
+                label = clean_labels[0] if clean_labels else "Unknown"
 
-            system_keys = {
-                "uid",
-                "name",
-                "description",
-                "source",
-                "created_at",
-                "updated_at",
-            }
-            properties = {k: v for k, v in dict(node).items() if k not in system_keys}
+                props = node_data.get("props", {})
+                system_keys = {
+                    "uid",
+                    "name",
+                    "description",
+                    "source",
+                    "created_at",
+                    "updated_at",
+                }
+                properties = {k: v for k, v in props.items() if k not in system_keys}
 
-            nodes.append(
-                NodeResponse(
-                    uid=node["uid"],
-                    label=label,
-                    name=node["name"],
-                    description=node.get("description"),
-                    properties=properties,
-                    source=node.get("source"),
-                    created_at=node["created_at"].to_native(),
-                    updated_at=node["updated_at"].to_native(),
+                nodes.append(
+                    NodeResponse(
+                        uid=node_data["uid"],
+                        label=label,
+                        name=node_data["name"],
+                        description=node_data.get("description"),
+                        properties=properties,
+                        source=node_data.get("source"),
+                        created_at=node_data["created_at"].to_native(),
+                        updated_at=node_data["updated_at"].to_native(),
+                    )
                 )
-            )
 
         relationships: list[RelationshipResponse] = []
         for rel_data in raw_rels:
-            if rel_data.get("rel_type") is None:
-                continue
-            rel = rel_data["rel"]
-            system_keys = {"weight", "source", "created_at", "updated_at"}
-            properties = {k: v for k, v in dict(rel).items() if k not in system_keys}
+            if isinstance(rel_data, dict) and rel_data.get("rel_type") is not None:
+                rel = rel_data.get("rel", {})
+                system_keys = {"weight", "source", "created_at", "updated_at"}
+                properties = {k: v for k, v in rel.items() if k not in system_keys}
 
-            relationships.append(
-                RelationshipResponse(
-                    source_uid=rel_data["source_uid"],
-                    target_uid=rel_data["target_uid"],
-                    rel_type=rel_data["rel_type"],
-                    weight=rel.get("weight", 1.0),
-                    properties=properties,
-                    source=rel.get("source"),
-                    created_at=rel["created_at"].to_native(),
-                    updated_at=rel["updated_at"].to_native(),
+                relationships.append(
+                    RelationshipResponse(
+                        source_uid=rel_data["source_uid"],
+                        target_uid=rel_data["target_uid"],
+                        rel_type=rel_data["rel_type"],
+                        weight=rel.get("weight", 1.0),
+                        properties=properties,
+                        source=rel.get("source"),
+                        created_at=rel["created_at"].to_native(),
+                        updated_at=rel["updated_at"].to_native(),
+                    )
                 )
-            )
 
         return SubgraphResponse(
             nodes=nodes,
