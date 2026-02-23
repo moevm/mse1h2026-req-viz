@@ -31,7 +31,7 @@ class WikidataClient:
         return data.get('technologies', {})
 
     def get_data(self, tech_name: str, relationship_name: str) -> List[Dict[str, str]]:
-        if relationship_name in ["used_by", "uses"]:
+        if relationship_name in ["used by", "uses"]:
             return self._get_companies_using_technology(tech_name, relationship_name)
 
     def _get_companies_using_technology(self, tech_name: str, relationship_name: str) -> List[Dict[str, str]]:

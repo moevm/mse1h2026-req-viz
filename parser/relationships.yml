@@ -6,4 +6,14 @@ relationship_types:
     stackoverflow:
         - ...
     weight_default: 0.7
-    description: "Используется вместе с"
+    description: "Использует"
+  - predicate: "used by"
+    category: "TECHNICAL"
+    subcategory: "integration"
+    wikidata_property: "P1535"  # used by
+    stackoverflow:
+        - ...
+    weight_default: 0.7
+    description: "Находится в пользовании у"
+
+
