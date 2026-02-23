@@ -214,10 +214,12 @@ class GraphService:
         return created
 
     def clear_all(self) -> None:
+        # TODO: remove or move to repository
         self._repo._conn.execute_write("MATCH (n) DETACH DELETE n")
         logger.warning("Cleared all data from the database.")
 
     def get_stats(self) -> dict[str, int]:
+        # TODO: remove or move to repository
         node_count_records = self._repo._conn.execute_read(
             "MATCH (n:_Node) RETURN count(n) AS count"
         )
