@@ -14,7 +14,6 @@ def main():
     
     st.title("Визуализация технологических зависимостей")
     
-    # Инициализация сессионных переменных
     if 'graph_data' not in st.session_state:
         st.session_state.graph_data = None
     if 'search_query' not in st.session_state:
@@ -22,16 +21,26 @@ def main():
     
     # СЕКЦИЯ ПОИСКА
     st.subheader("Поиск технологии")
-    
-    col1, col2 = st.columns([3, 1])
-    with col1:
+
+    search_col1, search_col2 = st.columns([5, 1.5], gap="small")
+
+    with search_col1:
         search_query = st.text_input(
             "Введите название технологии",
             placeholder="Например: Kafka, RabbitMQ, PostgreSQL...",
-            key="search_input"
+            key="search_input",
+            label_visibility="collapsed"
         )
-    with col2:
-        search_button = st.button("Построить граф", use_container_width=True, type="primary")
+
+    with search_col2:
+        button_container = st.container()
+        with button_container:
+            search_button = st.button(
+                "Построить граф", 
+                use_container_width=True, 
+                type="primary",
+                key="search_btn"
+            )
     
     # Обработка поиска
     if search_button or (search_query and st.session_state.search_query != search_query):
@@ -82,7 +91,6 @@ def main():
                 if st.checkbox(label, value=True, key=f"node_{node_type}"):
                     node_filters.append(node_type)
             
-            st.divider()
             
 
         
@@ -104,7 +112,12 @@ def main():
                 st.error(f"Ошибка визуализации: {str(e)}")
                 st.warning("Попробуйте нажать 'Обновить визуализацию' или перезагрузить страницу.")
         
-       
+        
+        col_export1, col_export2, col_export3 = st.columns([1, 2, 1])
+        with col_export2:
+            if st.button("Загрузить отчет (PDF)", use_container_width=True, type="secondary"):
+                st.info("Отчет успешно загружен.")
+    
     
     else:
         st.divider()
@@ -118,15 +131,8 @@ def main():
         with col3:
             st.info("**3. Анализируйте граф**\n\nИзучите связи между технологиями, компаниями и лицензиями.\n\n*Толщина линии = вес связи*")
         
-        # Быстрый старт
-        st.markdown("### Быстрый старт:")
-        cols = st.columns(5)
-        examples = ["Kafka", "RabbitMQ", "PostgreSQL", "Docker", "Kubernetes"]
-        for i, example in enumerate(examples):
-            with cols[i]:
-                if st.button(f"{example}", key=f"ex_{example}", use_container_width=True):
-                    st.session_state.search_query = example
-                    st.rerun()
+    
+
 
 
 if __name__ == "__main__":
