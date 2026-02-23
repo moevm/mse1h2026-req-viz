@@ -1,13 +1,13 @@
 from graph.connection import Neo4jConnection
 from graph.exceptions import (
+    GraphConnectionError,
     GraphError,
-    ConnectionError,
     QueryError,
 )
 
 __all__ = [
-    "Neo4jConnection",
+    "GraphConnectionError",
     "GraphError",
-    "ConnectionError",
+    "Neo4jConnection",
     "QueryError",
 ]

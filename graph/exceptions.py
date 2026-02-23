@@ -2,7 +2,7 @@ class GraphError(Exception):
     """Базовое исключение модуля для работы с Neo4j."""
 
 
-class ConnectionError(GraphError):
+class GraphConnectionError(GraphError):
     """Ошибка подключения к Neo4j."""
 
 

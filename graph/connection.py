@@ -1,25 +1,26 @@
 import logging
 import time
+from collections.abc import Callable
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 from neo4j import (
-    GraphDatabase,
     Driver,
-    Session,
+    GraphDatabase,
     ManagedTransaction,
     Result,
+    Session,
 )
 from neo4j.exceptions import (
+    AuthError,
+    ClientError,
     ServiceUnavailable,
     SessionExpired,
     TransientError,
-    AuthError,
-    ClientError,
 )
 
-from graph.exceptions import ConnectionError, QueryError
+from graph.exceptions import GraphConnectionError, QueryError
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +33,9 @@ _RETRYABLE_EXCEPTIONS = (
 
 
 def with_retry(
-        max_attempts: int = 3,
-        base_delay: float = 1.0,
-        backoff_factor: float = 2.0,
+    max_attempts: int = 3,
+    base_delay: float = 1.0,
+    backoff_factor: float = 2.0,
 ):
     def decorator(fn: Callable) -> Callable:
         @wraps(fn)
@@ -59,7 +60,7 @@ def with_retry(
                     time.sleep(delay)
                     delay *= backoff_factor
 
-            raise ConnectionError(
+            raise GraphConnectionError(
                 f"All {max_attempts} attempts failed: {last_exc}"
             ) from last_exc
 
@@ -69,17 +70,16 @@ def with_retry(
 
 
 class Neo4jConnection:
-
     def __init__(
-            self,
-            uri: str,
-            user: str,
-            password: str,
-            database: str = "neo4j",
-            max_connection_pool_size: int = 50,
-            connection_acquisition_timeout: float = 60.0,
-            max_transaction_retry_time: float = 30.0,
-            connection_timeout: float = 30.0,
+        self,
+        uri: str,
+        user: str,
+        password: str,
+        database: str = "neo4j",
+        max_connection_pool_size: int = 50,
+        connection_acquisition_timeout: float = 60.0,
+        max_transaction_retry_time: float = 30.0,
+        connection_timeout: float = 30.0,
     ) -> None:
         self._uri = uri
         self._user = user
@@ -114,7 +114,7 @@ class Neo4jConnection:
 
         except AuthError as exc:
             self.close()
-            raise ConnectionError(f"Authentication failed: {exc}") from exc
+            raise GraphConnectionError(f"Authentication failed: {exc}") from exc
         except Exception:
             self.close()
             raise
@@ -135,9 +135,7 @@ class Neo4jConnection:
     @property
     def driver(self) -> Driver:
         if self._driver is None:
-            raise ConnectionError(
-                "Not connected. Call connect() first."
-            )
+            raise GraphConnectionError("Not connected. Call connect() first.")
         return self._driver
 
     @property
@@ -159,12 +157,11 @@ class Neo4jConnection:
         finally:
             session.close()
 
-
     @with_retry(max_attempts=3, base_delay=1.0)
     def execute_read(
-            self,
-            query: str,
-            parameters: dict[str, Any] | None = None,
+        self,
+        query: str,
+        parameters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         logger.debug("READ  %s | params=%s", query, parameters)
 
@@ -180,9 +177,9 @@ class Neo4jConnection:
 
     @with_retry(max_attempts=3, base_delay=1.0)
     def execute_write(
-            self,
-            query: str,
-            parameters: dict[str, Any] | None = None,
+        self,
+        query: str,
+        parameters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         logger.debug("WRITE %s | params=%s", query, parameters)
 
