@@ -17,8 +17,7 @@ def create_graph_visualization(
     nodes: list, 
     edges: list, 
     node_filters: list, 
-    edge_filters: list,
-    edge_weights: dict
+    edge_weight_thresholds: dict
 ) -> str:
 
     # Фильтрация узлов
@@ -28,7 +27,8 @@ def create_graph_visualization(
     # Фильтрация связей
     filtered_edges = []
     for e in edges:
-        if (e["type"] in edge_filters and 
+        min_weight = edge_weight_thresholds.get(e["type"], 0.0)
+        if (e["weight"] <= min_weight and 
             e["source"] in filtered_node_ids and 
             e["target"] in filtered_node_ids):
             filtered_edges.append(e)
@@ -53,12 +53,11 @@ def create_graph_visualization(
     
     # Добавление связей
     for edge in filtered_edges:
-        weight = edge_weights.get(edge["type"], 1.0) * edge.get("weight", 1.0)
         net.add_edge(
             edge["source"], 
             edge["target"],
-            title=edge["type"],
-            width=weight * 3,
+            title=f"{edge['type']} (вес: {edge['weight']})",
+            width=edge["weight"] * 3,  
             color=get_edge_color(edge["type"]),
             dashes=edge["type"] in DASHED_EDGE_TYPES
         )

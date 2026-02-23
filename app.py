@@ -65,47 +65,43 @@ def main():
         # ПАНЕЛЬ ФИЛЬТРАЦИИ
         with col_filters:
             st.subheader("Фильтры")
-            backend = MockBackendService()
             
-            # Фильтры по типам связей
-            st.markdown("**Типы связей:**")
-            edge_filters = []
-            edge_weights = {}
+            st.markdown("**Минимальный вес связей:**")
             
+            edge_weight_thresholds = {}
             for edge_type in EDGE_TYPES:
                 display_name = EDGE_TYPE_NAMES.get(edge_type, edge_type)
-                weight = st.slider(
-                    display_name,
-                    min_value=0.0, max_value=1.0, value=1.0, step=0.1,
-                    key=f"edge_{edge_type}"
+                threshold = st.slider(
+                    f"{display_name}",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=1.0,  
+                    step=0.1,
+                    key=f"threshold_{edge_type}",
+                    format="%.1f"
                 )
-                edge_weights[edge_type] = weight
-                if weight > 0:
-                    edge_filters.append(edge_type)
+                edge_weight_thresholds[edge_type] = threshold
             
             st.divider()
             
+            # Фильтры по типам узлов
             st.markdown("**Типы узлов:**")
             node_filters = []
             for node_type, label in NODE_TYPE_FILTERS:
                 if st.checkbox(label, value=True, key=f"node_{node_type}"):
                     node_filters.append(node_type)
             
-            
-
         
         # ВИЗУАЛИЗАЦИЯ ГРАФА
         with col_graph:
             st.subheader("Визуализация графа")
-           
             
             try:
                 html_viz = create_graph_visualization(
                     nodes=st.session_state.graph_data["nodes"],
                     edges=st.session_state.graph_data["edges"],
                     node_filters=node_filters,
-                    edge_filters=edge_filters,
-                    edge_weights=edge_weights
+                    edge_weight_thresholds=edge_weight_thresholds  
                 )
                 st.components.v1.html(html_viz, height=550, scrolling=False)
             except Exception as e:
