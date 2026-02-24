@@ -1,0 +1,4 @@
+links:
+  wikidata_rest_endpoint: "https://www.wikidata.org/w/rest.php/wikibase/v1"
+  wikidata_sparql_endpoint: "https://query.wikidata.org/sparql"
+
