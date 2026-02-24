@@ -3,11 +3,10 @@ from typing import List, Dict, Any, Optional
 
 
 class WikidataSPARQLClient:
-    """Клиент для выполнения SPARQL-запросов к Wikidata."""
-    
-    WIKIDATA_SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
-    
-    def __init__(self):
+    """Клиент для выполнения SPARQL-запросов к Wikidata.""" 
+
+    def __init__(self, endpoint: str):
+        self.endpoint = endpoint
         self.session = requests.Session()
         self.session.headers.update({
             "Accept": "application/json",
@@ -45,7 +44,7 @@ class WikidataSPARQLClient:
         """Выполняет SPARQL-запрос и возвращает результат."""
         try:
             response = self.session.get(
-                self.WIKIDATA_SPARQL_ENDPOINT,
+                self.endpoint,
                 params={"query": query, "format": "json"},
                 timeout=30
             )

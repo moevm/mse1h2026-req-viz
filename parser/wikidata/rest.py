@@ -4,11 +4,9 @@ from typing import List, Dict, Any, Optional
 
 class WikidataRestClient:
     """Клиент для выполнения запросов к REST API Wikidata."""
-
-    WIKIDATA_REST_ENDPOINT = "https://www.wikidata.org/w/rest.php/wikibase/v1"
-    
-    def __init__(self):
-        self.base_url = self.WIKIDATA_REST_ENDPOINT
+ 
+    def __init__(self, endpoint: str):
+        self.base_url = endpoint
         self.session = requests.Session()
         self.session.headers.update({
             "Accept": "application/json",
