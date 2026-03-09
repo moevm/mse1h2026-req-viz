@@ -9,17 +9,14 @@ class WikidataClient:
     """Клиент для выполнения запросов к Wikidata через SPARQL и REST API."""
     
     def __init__(self, relationships_path: Optional[Path] = None,
-                 technologies_path: Optional[Path] = None,
                  config_path: Optional[Path] = None,
                  parsing_type: Optional[str] = "sparql"):
         base = Path(__file__).parent.parent
         self.relationships_path = relationships_path or base / "relationships.yml"
-        self.technologies_path = technologies_path or base / "technologies.yml"
         self.config_path = config_path or base / "config.yml"
         self.parsing_type = parsing_type
         
         self.relationship_types = self._load_relationships()
-        self.tech_map = self._load_technologies()
         self.config = self._load_config()
         
         self.sparql = WikidataSPARQLClient(self.config.get('links', {}).get('wikidata_sparql_endpoint'))
@@ -33,11 +30,10 @@ class WikidataClient:
         with open(self.relationships_path, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
         return data.get('relationship_types', [])
-    
-    def _load_technologies(self) -> Dict[str, str]:
-        with open(self.technologies_path, 'r', encoding='utf-8') as f:
-            data = yaml.safe_load(f)
-        return data.get('technologies', {})
+
+    def get_technology_info(self, tech_name: str) -> Optional[Dict[str, Any]]:
+        """Получает информацию о технологии по названию."""
+        return self.rest.get_technology_info(tech_name)
 
     def get_data(self, tech_name: str, relationship_name: str) -> List[Dict[str, str]]:
         if relationship_name in ["used by", "uses"]:
@@ -45,10 +41,11 @@ class WikidataClient:
 
     def _get_companies_using_technology(self, tech_name: str, relationship_name: str) -> List[Dict[str, str]]:
         """Находит компании, использующие технологию по заданному отношению."""
-        if tech_name not in self.tech_map:
-            raise ValueError(f"Неизвестная технология: {tech_name}")
+        tech_info = self.get_technology_info(tech_name)
+        if not tech_info:
+            return []
         
-        tech_qid = self.tech_map[tech_name]
+        tech_qid = tech_info["id"]
         
         rel_conf = None
         for rel in self.relationship_types:
