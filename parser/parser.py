@@ -7,25 +7,26 @@ from .wikidata.wikidata import WikidataClient
 class Parser:
     """Основной класс для построения графа отношений между технологиями."""
 
-    def __init__(self, technologies_path: Optional[Path] = None, relationships_path: Optional[Path] = None):
+    def __init__(self, relationships_path: Optional[Path] = None, config_path: Optional[Path] = None):
         base = Path(__file__).parent
-        technologies_path = technologies_path or base / "technologies.yml"
         relationships_path = relationships_path or base / "relationships.yml"
+        config_path = config_path or base / "config.yml"
         
-        self.wikidata_client = WikidataClient(relationships_path, technologies_path)
+        self.wikidata_client = WikidataClient(relationships_path, config_path)
 
     def graph(self, technologies: List[str], relationships: List[str]) -> Dict[str, Any]:
         """Строит граф для указанных технологий и отношений."""
-        unknown = [t for t in technologies if t not in self.wikidata_client.tech_map]
-        if unknown:
-            raise ValueError(f"Неизвестные технологии: {unknown}")
-        
         nodes = []
         edges = []
         node_ids = set()
         
         for tech_name in technologies:
-            tech_qid = self.wikidata_client.tech_map[tech_name]
+            tech_info = self.wikidata_client.get_technology_info(tech_name)
+            if not tech_info:
+                print(f"Предупреждение: технология '{tech_name}' не найдена")
+                continue
+            
+            tech_qid = tech_info["id"]
             
             node_ids.add(tech_qid)
             nodes.append({
