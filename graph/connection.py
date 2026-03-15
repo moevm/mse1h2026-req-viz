@@ -68,7 +68,7 @@ def with_retry(
 
     return decorator
 
-"""Клиент для подключения к Neo4j и выполнения Cypher-запросов."""
+""" Управляет подключением к базе данных Neo4j и предоставляет интерфейс для выполнения Cypher-запросов. """
 class Neo4jConnection:
     def __init__(
         self,

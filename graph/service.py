@@ -22,7 +22,9 @@ from graph.repository import GraphRepository
 
 logger = logging.getLogger(__name__)
 
-
+""" Предоставляет интерфейс для работы с графами другим модулям. 
+Реализует бизнес-логику работы с графом, добавляя к операциям репозитория проверки существования,
+защиту от дубликатов, логирование и пакетную обработку"""
 class GraphService:
     def __init__(self, connection: Neo4jConnection) -> None:
         self._repo = GraphRepository(connection)
