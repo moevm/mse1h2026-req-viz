@@ -68,7 +68,7 @@ def with_retry(
 
     return decorator
 
-
+"""Клиент для подключения к Neo4j и выполнения Cypher-запросов."""
 class Neo4jConnection:
     def __init__(
         self,
