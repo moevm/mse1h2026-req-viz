@@ -150,6 +150,7 @@ class Neo4jConnection:
 
     @contextmanager
     def session(self, **kwargs: Any):
+        """ открывает сессию чето делает и закрывает, освобождая ресурсы """
         kwargs.setdefault("database", self._database)
         session: Session = self.driver.session(**kwargs)
         try:
@@ -157,28 +158,31 @@ class Neo4jConnection:
         finally:
             session.close()
 
+    """ Обертка для выполнения запроса к Neo4j. Выполнить запрос только для чтения. """
     @with_retry(max_attempts=3, base_delay=1.0)
     def execute_read(
         self,
-        query: str,
+        query: str, # строка с Cypher-запросом
         parameters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         logger.debug("READ  %s | params=%s", query, parameters)
 
         def _work(tx: ManagedTransaction) -> list[dict[str, Any]]:
+            """  """
             result: Result = tx.run(query, parameters or {})
             return [record.data() for record in result]
 
         try:
             with self.session() as session:
-                return session.execute_read(_work)
+                return session.execute_read(_work) # выполняет переданную функцию с помощью метода Neo4j внутри сессии
         except ClientError as exc:
             raise QueryError(f"Read query failed: {exc}") from exc
 
+    """ Обертка для выполнения запроса к Neo4j. Выполнить запрос для записи (каких-то изменений). """
     @with_retry(max_attempts=3, base_delay=1.0)
     def execute_write(
         self,
-        query: str,
+        query: str,  # строка с Cypher-запросом
         parameters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         logger.debug("WRITE %s | params=%s", query, parameters)
@@ -189,6 +193,6 @@ class Neo4jConnection:
 
         try:
             with self.session() as session:
-                return session.execute_write(_work)
+                return session.execute_write(_work) # выполняет переданную функцию с помощью метода Neo4j внутри сессии
         except ClientError as exc:
             raise QueryError(f"Write query failed: {exc}") from exc
