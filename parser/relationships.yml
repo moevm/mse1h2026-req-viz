@@ -15,5 +15,13 @@ relationship_types:
         - ...
     weight_default: 0.7
     description: "Находится в пользовании у"
+  - predicate: "depends on software"
+    category: "TECHNICAL"
+    subcategory: "integration"
+    wikidata_property: "P1547"  # depends on
+    stackoverflow:
+        - ...
+    weight_default: 0.7
+    description: "Зависит от"
 
 

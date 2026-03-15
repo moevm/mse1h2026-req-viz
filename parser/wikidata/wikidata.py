@@ -42,6 +42,8 @@ class WikidataClient:
     def get_data(self, tech_name: str, relationship_name: str) -> List[Dict[str, str]]:
         if relationship_name in ["used by", "uses"]:
             return self._get_companies_using_technology(tech_name, relationship_name)
+        if relationship_name == "depends on software":
+            return self._get_dependecies(tech_name, relationship_name)
 
     def _get_companies_using_technology(self, tech_name: str, relationship_name: str) -> List[Dict[str, str]]:
         """Находит компании, использующие технологию по заданному отношению."""
@@ -65,3 +67,6 @@ class WikidataClient:
             return self.rest.get_companies_using_technology(prop_pid, tech_qid)
         else:
             return self.sparql.get_companies_using_technology(prop_pid, tech_qid)
+
+    def _get_dependecies(self, tech_name: str, relationship_name: str) -> List[Dict[str, str]]:
+
