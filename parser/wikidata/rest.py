@@ -5,29 +5,22 @@ from typing import List, Dict, Any, Optional
 class WikidataRestClient:
     """Клиент для выполнения запросов к REST API Wikidata."""
 
-    # ключевые слова, указывающие на программное обеспечение
-    SOFTWARE_KEYWORDS = {
-        "software", "program", "application", "framework", "library",
-        "platform", "tool", "utility", "package", "module", "system",
-        "engine", "runtime", "virtualization", "container", "operating system",
-        "os", "kernel", "driver", "middleware", "api", "sdk", "ide",
-        "compiler", "interpreter", "database", "server", "client"
-    }
-
-    def __init__(self, endpoint: str):
+    def __init__(self, endpoint: str, config: Dict[str, Any]):
         self.base_url = endpoint
+        self.config = config
         self.session = requests.Session()
         self.session.headers.update({
             "Accept": "application/json",
             "User-Agent": "parser/1.0"
         })
 
-    def search_technology(self, tech_name: str, language: str = "en") -> Optional[Dict[str, str]]:
+    def search_technology(self, tech_name: str) -> Optional[Dict[str, str]]:
         """
         Ищет технологию по названию и возвращает QID и основную информацию.
         Выбирает наиболее релевантный результат, отдавая предпочтение ПО.
         """
         try:
+            language = self.config.get('search', {}).get('language', 'en')
             response = self.session.get(
                 f"{self.base_url}/search/items",
                 params={"q": tech_name, "language": language, "limit": 5}
@@ -38,15 +31,14 @@ class WikidataRestClient:
             if not results:
                 return None
 
-            # ищем результат, который похож на программное обеспечение
+            keywords = self.config.get('search', {}).get('keywords', {}).get(language, [])
             best = None
             for res in results:
                 desc = res.get("description", {}).get("value", "").lower()
-                if any(kw in desc for kw in self.SOFTWARE_KEYWORDS):
+                if any(kw.lower() in desc for kw in keywords):
                     best = res
                     break
 
-            # если не нашли, берём первый
             if best is None:
                 best = results[0]
 
@@ -91,7 +83,7 @@ class WikidataRestClient:
                                     "type": "company"
                                 })
                             except Exception as e:
-                                print(f"Ошибка получения компании {company_qid}: {e}")
+                                print(f"Ошибка получения сведений о компании {company_qid}: {e}")
                                 companies.append({
                                     "id": company_qid,
                                     "name": company_qid,
