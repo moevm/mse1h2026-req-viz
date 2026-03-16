@@ -26,10 +26,42 @@ class DataBase:
         self._service: Optional[GraphService] = None
 
     def connect(self) -> None:
-        pass
+        """
+        Открывает соединение с Neo4j и инициализирует схему.
+        """
+        if self._conn is not None:
+            return  # Уже подключено
+
+        self._conn = Neo4jConnection(
+            uri=self._uri,
+            user=self._user,
+            password=self._password,
+            database=self._database
+        )
+        self._conn.connect()
+        self._service = GraphService(self._conn)
+        self._service.init_schema()
 
     def disconnect(self) -> None:
-        pass
+        if self._conn is not None:
+            self._conn.close()
+            self._conn = None
+            self._service = None
+
+    def is_connected(self) -> bool:
+        return self._conn is not None
+
+    def _to_graph_create(self, graph: GraphResponse) -> tuple[list[NodeCreate], list[RelationshipCreate]]:
+        """
+        Конвертирует GraphResponse → NodeCreate + RelationshipCreate (для сохранения в Neo4j)
+        """
+        # Вернёт списки для пакетного создания
+
+    def _to_frontend_format(self, subgraph: SubgraphResponse) -> GraphResponse:
+        """
+        Конвертирует SubgraphResponse (из Neo4j) → GraphResponse (для API/фронтенда)
+        """
+        # Вернёт готовый GraphResponse
 
     def get_graph_by_technology(
             self,
