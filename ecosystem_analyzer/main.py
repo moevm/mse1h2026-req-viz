@@ -2,14 +2,16 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
-import time
 import os
+import logging
 
 from ecosystem_analyzer.models import GraphResponse
 from ecosystem_analyzer.database import Database
 from ecosystem_analyzer.parser import parser
 
 app = FastAPI()
+
+logger = logging.getLogger(__name__)
 
 """ CORS for Streamlit """
 app.add_middleware(
@@ -20,7 +22,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Создаём экземпляр БД (конфиги берём из переменных окружения)
 db = Database(
     uri=os.getenv("NEO4J_URI", "bolt://neo4j:7687"),
     user=os.getenv("NEO4J_USER", "neo4j"),
@@ -28,21 +29,18 @@ db = Database(
     database=os.getenv("NEO4J_DATABASE", "neo4j")
 )
 
-# 4. Подключение при старте приложения
 @app.on_event("startup")
 def startup_event():
-    print("🔌 Connecting to Neo4j...")
+    logger.info("Connecting to Database...")
     db.connect()
-    print("✅ Connected to Neo4j")
+    logger.info("Connected to Data")
 
-# 5. Отключение при остановке приложения
 @app.on_event("shutdown")
 def shutdown_event():
-    print("🔌 Disconnecting from Neo4j...")
+    logger.info("Disconnecting from Neo4j...")
     db.disconnect()
-    print("✅ Disconnected")
+    logger.info("Disconnected")
 
-# 6. Тестовый эндпоинт: проверка подключения
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "connected": db.is_connected()}
@@ -62,38 +60,32 @@ async def get_graph(
     depth: int = 2,
     limit: int = 100
 ):
-    start_time = time.time()
+    logger.info(f"Requesting graph for: {source} (depth={depth}, limit={limit})")
     
     # Search in DB
-    result = db.get_graph_by_technology(source, depth=depth, limit=limit)
+    graph = db.get_graph_by_technology(source, depth=depth, limit=limit)
 
-    if result is None:
-        # Если не найдено — пока просто возвращаем 404
-        # Позже здесь будет логика вызова парсера
-        raise HTTPException(status_code=404, detail=f"Technology '{source}' not found in database")
-
-    return result
-
-    existing_graph = db.get_graph_by_source(source)
-
-    if existing_graph:
-        return existing_graph
+    if graph:
+        return graph
     
     # Parse
     try:
-        parsed_graph = parser.parse_graph(source)
+        graph = parser.parse_graph(source)
     except Exception as e:
+        logger.info(f"Parser error")
         raise HTTPException(status_code=500, detail=f"Parser error: {str(e)}")
     
-    if not parsed_graph:
+    if not graph:
+        logger.info(f"Could not parse source")
         raise HTTPException(status_code=404, detail="Could not parse source")
     
     # Save in DB
-    saved = db.save_graph(source, parsed_graph)
+    saved = db.save_graph(source, graph)
     if not saved:
+        logger.info(f"Graph was not saved properly")
         raise HTTPException(status_code=500, detail="Graph was not saved properly")
     
-    return parsed_graph
+    return graph
 
 """ Entry point to the API """
 @app.get("/")

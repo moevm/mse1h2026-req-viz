@@ -101,7 +101,7 @@ class Database:
         if center_node is None:
             return None
 
-        subgraph = self.service.get_subgraph(
+        subgraph = self._service.get_subgraph(
             SubgraphFilter(
                 center_uid=center_node.uid,
                 depth=depth,
@@ -114,7 +114,7 @@ class Database:
 
     def _find_technology_node(self, name: str) -> Optional[object]:
         """ Ищет узел по имени и возвращает NodeResponse из graph.models. """
-        nodes = self.service.find_nodes(
+        nodes = self._service.find_nodes(
             NodeFilter(name_contains=name)
         )
         if not nodes:
@@ -133,10 +133,6 @@ class Database:
     # ... вызов service.create_nodes_batch() и service.create_relationships_batch()
         return True
 
-
-    def get_graph_by_source(self, source: str):
-        return self.storage.get(source)
-
     def save_graph(self, source: str, graph: GraphResponse)-> bool:
-        self.storage[source] = graph
+
         return True
