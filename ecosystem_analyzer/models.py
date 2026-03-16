@@ -16,7 +16,7 @@ class Edge(BaseModel):
 class Statistics(BaseModel):
     total_nodes: int
     total_edges: int
-    max_depth: int
+    max_depth: Optional[int] = None
 
 class GraphResponse(BaseModel):
     nodes: List[Node]

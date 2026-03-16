@@ -30,8 +30,7 @@ def _to_graph_response(subgraph: SubgraphResponse) -> GraphResponse:
 
     statistics = Statistics(
         total_nodes=subgraph.total_nodes,
-        total_edges=subgraph.total_relationships,
-        max_depth=None
+        total_edges=subgraph.total_relationships
     )
 
     return GraphResponse(
@@ -123,16 +122,44 @@ class Database:
 
     def save_graph(
             self,
-            tech_name: str,
-            graph: GraphResponse
+            graph: GraphResponse,
+            source: str = "manual"
     ) -> bool:
         """ Сохраняет граф в Neo4j. """
         # Для каждого узла: проверить дубликат по (label, name) → создать или пропустить.
         # Для каждого ребра: создать связь с указанным типом и весом
-        nodes_create, rels_create = self._to_graph_create(graph)
-    # ... вызов service.create_nodes_batch() и service.create_relationships_batch()
-        return True
+        # ... вызов service.create_nodes_batch() и service.create_relationships_batch()
+        if not self.is_connected():
+            raise RuntimeError("Database not connected. Call connect() first.")
 
-    def save_graph(self, source: str, graph: GraphResponse)-> bool:
+        nodes_to_create = []
+        for node in graph.nodes:
+            node_create = NodeCreate(
+                label=node.type,
+                name=node.label,
+                description="",
+                properties={"frontend_id": node.id},
+                source=source
+            )
+            nodes_to_create.append(node_create)
+
+        created_nodes = self._service.create_nodes_batch(nodes_to_create)
+
+        # created_nodes — это список NodeResponse в том же порядке, что и nodes_to_create
+        id_map = {}
+        for i, node in enumerate(graph.nodes):
+            id_map[node.id] = created_nodes[i].uid
+        relationships_to_create = []
+        for edge in graph.edges:
+            rel_create = RelationshipCreate(
+                source_uid=id_map[edge.source],
+                target_uid=id_map[edge.target],
+                rel_type=edge.type,
+                weight=edge.weight,
+                source=source
+            )
+            relationships_to_create.append(rel_create)
+
+        self._service.create_relationships_batch(relationships_to_create)
 
         return True

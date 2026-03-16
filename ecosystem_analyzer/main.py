@@ -56,7 +56,7 @@ Get graph by source
 """
 @app.get("/api/graph", response_model=GraphResponse)
 async def get_graph(
-    source: str = Query(..., description="Source of data (URL, name project etc.)"),
+    source: str = Query(..., description="Technology name (e.g., 'Kafka', 'PostgreSQL')"),
     depth: int = 2,
     limit: int = 100
 ):
@@ -72,7 +72,7 @@ async def get_graph(
     try:
         graph = parser.parse_graph(source)
     except Exception as e:
-        logger.info(f"Parser error")
+        logger.error(f"Parser error for '{source}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Parser error: {str(e)}")
     
     if not graph:
@@ -80,10 +80,11 @@ async def get_graph(
         raise HTTPException(status_code=404, detail="Could not parse source")
     
     # Save in DB
-    saved = db.save_graph(source, graph)
-    if not saved:
-        logger.info(f"Graph was not saved properly")
-        raise HTTPException(status_code=500, detail="Graph was not saved properly")
+    try:
+        db.save_graph(graph, source=source)
+    except Exception as e:
+        logger.error(f"Failed to save graph for '{source}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
     
     return graph
 
