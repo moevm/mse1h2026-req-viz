@@ -1,6 +1,9 @@
 services:
   neo4j:
     image: neo4j:5
+    ports:
+      - "7474:7474"  # Browser
+      - "7687:7687"  # Bolt
     container_name: ecosystem-neo4j
     environment:
       NEO4J_AUTH: neo4j/test1234
@@ -10,7 +13,9 @@ services:
       - ecosystem_net
 
   backend:
-    build: ./ecosystem_analyzer
+    build:
+      context: .
+      dockerfile: ecosystem_analyzer/Dockerfile
     container_name: ecosystem-backend
     depends_on:
       - neo4j

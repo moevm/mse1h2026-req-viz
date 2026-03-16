@@ -3,10 +3,11 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 import time
+import os
 
-from .models import GraphResponse
-from .database import DataBase
-from .parser import parser
+from ecosystem_analyzer.models import GraphResponse
+from ecosystem_analyzer.database import Database
+from ecosystem_analyzer.parser import parser
 
 app = FastAPI()
 
@@ -18,6 +19,33 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Создаём экземпляр БД (конфиги берём из переменных окружения)
+db = Database(
+    uri=os.getenv("NEO4J_URI", "bolt://neo4j:7687"),
+    user=os.getenv("NEO4J_USER", "neo4j"),
+    password=os.getenv("NEO4J_PASSWORD", "test1234"),
+    database=os.getenv("NEO4J_DATABASE", "neo4j")
+)
+
+# 4. Подключение при старте приложения
+@app.on_event("startup")
+def startup_event():
+    print("🔌 Connecting to Neo4j...")
+    db.connect()
+    print("✅ Connected to Neo4j")
+
+# 5. Отключение при остановке приложения
+@app.on_event("shutdown")
+def shutdown_event():
+    print("🔌 Disconnecting from Neo4j...")
+    db.disconnect()
+    print("✅ Disconnected")
+
+# 6. Тестовый эндпоинт: проверка подключения
+@app.get("/api/health")
+def health_check():
+    return {"status": "ok", "connected": db.is_connected()}
 
 """
 Get graph by source
@@ -35,6 +63,15 @@ async def get_graph(
     start_time = time.time()
     
     # Search in DB
+    result = db.get_graph_by_technology(source, depth=depth, limit=limit)
+
+    if result is None:
+        # Если не найдено — пока просто возвращаем 404
+        # Позже здесь будет логика вызова парсера
+        raise HTTPException(status_code=404, detail=f"Technology '{source}' not found in database")
+
+    return result
+
     existing_graph = db.get_graph_by_source(source)
 
     if existing_graph:

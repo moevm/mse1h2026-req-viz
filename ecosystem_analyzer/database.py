@@ -48,10 +48,6 @@ class Database:
 
     def __init__(self, uri: str, user: str, password: str, database: str = "neo4j"):
         """ Сохраняет параметры подключения. Соединение не открывается. """
-        conn = Neo4jConnection(uri, user, password, database)
-        self.service = GraphService(conn)
-        self.service.init_schema()
-
         self._uri = uri
         self._user = user
         self._password = password
