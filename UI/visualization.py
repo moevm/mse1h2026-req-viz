@@ -57,7 +57,7 @@ def create_graph_visualization(
             edge["source"], 
             edge["target"],
             title=f"{edge['type']} (вес: {edge['weight']})",
-            width=edge["weight"] * 3,  
+            width=edge["weight"] * 4,  
             color=get_edge_color(edge["type"]),
             dashes=edge["type"] in DASHED_EDGE_TYPES
         )
