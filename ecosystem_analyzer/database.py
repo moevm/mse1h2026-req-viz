@@ -120,6 +120,15 @@ class Database:
             return None
         return nodes[0]
 
+    def _get_node_uid(self, node_type: str, node_name: str) -> str:
+        """ Возвращает UID узла по его типу и имени. """
+        found = self._service.find_nodes(
+            NodeFilter(labels=[node_type], name_contains=node_name, limit=1)
+        )
+        if not found:
+            raise RuntimeError(f"Node not found: {node_type} / '{node_name}'")
+        return found[0].uid
+
     def save_graph(
             self,
             graph: GraphResponse,
@@ -145,10 +154,12 @@ class Database:
 
         created_nodes = self._service.create_nodes_batch(nodes_to_create)
 
-        # created_nodes — это список NodeResponse в том же порядке, что и nodes_to_create
-        id_map = {}
-        for i, node in enumerate(graph.nodes):
-            id_map[node.id] = created_nodes[i].uid
+        id_map = {
+            node.id: self._get_node_uid(node.type, node.label)
+            for node in graph.nodes
+        }
+
+
         relationships_to_create = []
         for edge in graph.edges:
             rel_create = RelationshipCreate(
@@ -160,6 +171,7 @@ class Database:
             )
             relationships_to_create.append(rel_create)
 
-        self._service.create_relationships_batch(relationships_to_create)
+        if relationships_to_create:
+            self._service.create_relationships_batch(relationships_to_create)
 
         return True
