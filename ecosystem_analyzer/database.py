@@ -1,12 +1,47 @@
 import logging
 
-from .models import GraphResponse
+from .models import *
 from graph.service import GraphService
 from graph.connection import Neo4jConnection
-from graph.models import NodeCreate, RelationshipCreate, NodeFilter, SubgraphFilter
+from graph.models import (NodeCreate, RelationshipCreate, NodeFilter,
+                          SubgraphFilter, SubgraphResponse)
 from graph.exceptions import NodeNotFoundError, GraphConnectionError
 
-class DataBase:
+
+def _to_graph_response(subgraph: SubgraphResponse) -> GraphResponse:
+    nodes = [
+        Node(
+            id=node.uid,
+            label=node.name,
+            type=node.label
+        )
+        for node in subgraph.nodes
+    ]
+
+    edges = [
+        Edge(
+            source=rel.source_uid,
+            target=rel.target_uid,
+            type=rel.rel_type,
+            weight=rel.weight
+        )
+        for rel in subgraph.relationships
+    ]
+
+    statistics = Statistics(
+        total_nodes=subgraph.total_nodes,
+        total_edges=subgraph.total_relationships,
+        max_depth=None
+    )
+
+    return GraphResponse(
+        nodes=nodes,
+        edges=edges,
+        statistics=statistics
+    )
+
+
+class Database:
     """
     Обёртка над GraphService для управления подключением к Neo4j.
     """
@@ -57,29 +92,50 @@ class DataBase:
         """
         # Вернёт списки для пакетного создания
 
-    def _to_frontend_format(self, subgraph: SubgraphResponse) -> GraphResponse:
-        """
-        Конвертирует SubgraphResponse (из Neo4j) → GraphResponse (для API/фронтенда)
-        """
-        # Вернёт готовый GraphResponse
-
     def get_graph_by_technology(
             self,
             tech_name: str,
             depth: int = 2,
-            allowed_rel_types: list[str] | None = None
+            limit: int = 100,
+            rel_types: Optional[List[str]] = None
     ) -> GraphResponse | None:
-        # will eject with GraphService.get_subgraph() and covert it to format for front
-        pass
+        """ Получает подграф технологии из Neo4j. """
+
+        center_node = self._find_technology_node(tech_name)
+        if center_node is None:
+            return None
+
+        subgraph = self.service.get_subgraph(
+            SubgraphFilter(
+                center_uid=center_node.uid,
+                depth=depth,
+                limit=limit,
+                rel_filter={"rel_types": rel_types} if rel_types else None
+            )
+        )
+
+        return _to_graph_response(subgraph)
+
+    def _find_technology_node(self, name: str) -> Optional[object]:
+        """ Ищет узел по имени и возвращает NodeResponse из graph.models. """
+        nodes = self.service.find_nodes(
+            NodeFilter(name_contains=name)
+        )
+        if not nodes:
+            return None
+        return nodes[0]
 
     def save_graph(
             self,
             tech_name: str,
             graph: GraphResponse
     ) -> bool:
+        """ Сохраняет граф в Neo4j. """
         # Для каждого узла: проверить дубликат по (label, name) → создать или пропустить.
         # Для каждого ребра: создать связь с указанным типом и весом
-        pass
+        nodes_create, rels_create = self._to_graph_create(graph)
+    # ... вызов service.create_nodes_batch() и service.create_relationships_batch()
+        return True
 
 
     def get_graph_by_source(self, source: str):
