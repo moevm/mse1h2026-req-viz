@@ -1,5 +1,10 @@
 # config.py
+import os
 from typing import Dict, List, Tuple
+
+# Backend configuration
+BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:8000")
+BACKEND_TIMEOUT = 10  # seconds
 
 # Цвета узлов по типу
 NODE_COLORS: Dict[str, str] = {

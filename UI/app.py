@@ -2,7 +2,7 @@
 import streamlit as st
 import pandas as pd
 from config import NODE_TYPE_FILTERS, EDGE_TYPES, EDGE_TYPE_NAMES
-from services import MockBackendService
+from services import BackendClient, NotFoundError, BackendError
 from visualization import create_graph_visualization
 
 
@@ -45,18 +45,32 @@ def main():
     # Обработка поиска
     if search_button or (search_query and st.session_state.search_query != search_query):
         st.session_state.search_query = search_query
-        backend = MockBackendService()
         
-        tech_info = backend.search_technology(search_query)
-        
-        if tech_info:
-            st.success(f"Найдено: **{tech_info['name']}** ({tech_info['category']})")
-            with st.spinner("Построение графа зависимостей..."):
-                st.session_state.graph_data = backend.build_graph(search_query)
-                st.rerun()
-        else:
-            st.error(f"Технология '{search_query}' не найдена. Попробуйте: Kafka, RabbitMQ, PostgreSQL, Docker, Kubernetes")
+        if not search_query.strip():
+            st.warning("Пожалуйста, введите название технологии")
             st.session_state.graph_data = None
+        else:
+            backend = BackendClient()
+            
+            try:
+                with st.spinner("Построение графа зависимостей..."):
+                    graph = backend.get_graph(search_query)
+                    st.session_state.graph_data = graph
+                    st.success(f"Граф успешно получен для '{search_query}'")
+                    st.rerun()
+            except NotFoundError:
+                st.error(f"Технология '{search_query}' не найдена")
+                st.info("Попробуйте другую технологию или проверьте правописание")
+                st.session_state.graph_data = None
+            except BackendError as e:
+                st.error(f"Ошибка подключения к серверу: {str(e)}")
+                st.warning("Убедитесь, что бэкенд запущен на http://localhost:8000")
+                if st.button("Повторить запрос"):
+                    st.rerun()
+                st.session_state.graph_data = None
+            except ValueError as e:
+                st.error(f"Неверный запрос: {str(e)}")
+                st.session_state.graph_data = None
     
     if st.session_state.graph_data:
         st.divider()
