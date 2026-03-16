@@ -5,7 +5,7 @@ from typing import Optional
 import time
 
 from .models import GraphResponse
-from .database import db
+from .database import DataBase
 from .parser import parser
 
 app = FastAPI()
