@@ -58,7 +58,9 @@ Get graph by source
 """
 @app.get("/api/graph", response_model=GraphResponse)
 async def get_graph(
-    source: str = Query(..., description="Source of data (URL, name project etc.)")
+    source: str = Query(..., description="Source of data (URL, name project etc.)"),
+    depth: int = 2,
+    limit: int = 100
 ):
     start_time = time.time()
     

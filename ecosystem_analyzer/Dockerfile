@@ -11,7 +11,6 @@ RUN pip install --no-cache-dir poetry==$POETRY_VERSION
 WORKDIR /app
 
 COPY graph /app/graph
-RUN pip install /app/graph
 
 COPY ecosystem_analyzer/pyproject.toml ecosystem_analyzer/poetry.lock /app/ecosystem_analyzer/
 

@@ -16,6 +16,8 @@ services:
     build:
       context: .
       dockerfile: ecosystem_analyzer/Dockerfile
+    ports:
+      - "8000:8000"
     container_name: ecosystem-backend
     depends_on:
       - neo4j
