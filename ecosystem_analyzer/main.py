@@ -8,6 +8,8 @@ import logging
 from ecosystem_analyzer.models import GraphResponse
 from ecosystem_analyzer.database import Database
 from ecosystem_analyzer.parser import parser
+MAX_DEPTH = 10 # Max depth of graph response TODO: remove or replace to env file
+MAX_NODES = 100 # Max nodes to return
 
 app = FastAPI()
 
@@ -57,8 +59,8 @@ Get graph by source
 @app.get("/api/graph", response_model=GraphResponse)
 async def get_graph(
     source: str = Query(..., description="Technology name (e.g., 'Kafka', 'PostgreSQL')"),
-    depth: int = 2,
-    limit: int = 100
+    depth: int = Query(1, ge=1, le=MAX_DEPTH, description="Graph traversal depth"),
+    limit: int = Query(MAX_NODES, ge=1, description="Max nodes to return")
 ):
     logger.info(f"Requesting graph for: {source} (depth={depth}, limit={limit})")
     

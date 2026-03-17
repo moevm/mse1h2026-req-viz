@@ -80,8 +80,8 @@ class Database:
     def get_graph_by_technology(
             self,
             tech_name: str,
-            depth: int = 2,
-            limit: int = 100,
+            depth: Optional[int],
+            limit: Optional[int],
             rel_types: Optional[List[str]] = None
     ) -> GraphResponse | None:
         """ Получает подграф технологии из Neo4j. """
