@@ -165,7 +165,6 @@ class Neo4jConnection:
         logger.debug("READ  %s | params=%s", query, parameters)
 
         def _work(tx: ManagedTransaction) -> list[dict[str, Any]]:
-            """  """
             result: Result = tx.run(query, parameters or {})
             return [record.data() for record in result]
 
