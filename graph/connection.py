@@ -68,6 +68,7 @@ def with_retry(
 
     return decorator
 
+
 class Neo4jConnection:
     def __init__(
         self,
