@@ -41,9 +41,7 @@ def _to_graph_response(subgraph: SubgraphResponse) -> GraphResponse:
 
 
 class Database:
-    """
-    Обёртка над GraphService для управления подключением к Neo4j.
-    """
+    """ Обёртка над GraphService для управления подключением к Neo4j. """
 
     def __init__(self, uri: str, user: str, password: str, database: str = "neo4j"):
         """ Сохраняет параметры подключения. Соединение не открывается. """
@@ -56,9 +54,7 @@ class Database:
         self._service: Optional[GraphService] = None
 
     def connect(self) -> None:
-        """
-        Открывает соединение с Neo4j и инициализирует схему.
-        """
+        """ Открывает соединение с Neo4j и инициализирует схему. """
         if self._conn is not None:
             return  # Уже подключено
 
@@ -80,12 +76,6 @@ class Database:
 
     def is_connected(self) -> bool:
         return self._conn is not None
-
-    def _to_graph_create(self, graph: GraphResponse) -> tuple[list[NodeCreate], list[RelationshipCreate]]:
-        """
-        Конвертирует GraphResponse → NodeCreate + RelationshipCreate (для сохранения в Neo4j)
-        """
-        # Вернёт списки для пакетного создания
 
     def get_graph_by_technology(
             self,
@@ -135,9 +125,6 @@ class Database:
             source: str = "manual"
     ) -> bool:
         """ Сохраняет граф в Neo4j. """
-        # Для каждого узла: проверить дубликат по (label, name) → создать или пропустить.
-        # Для каждого ребра: создать связь с указанным типом и весом
-        # ... вызов service.create_nodes_batch() и service.create_relationships_batch()
         if not self.is_connected():
             raise RuntimeError("Database not connected. Call connect() first.")
 

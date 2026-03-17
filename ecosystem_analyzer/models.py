@@ -21,6 +21,6 @@ class Statistics(BaseModel):
 class GraphResponse(BaseModel):
     nodes: List[Node]
     edges: List[Edge]
-    statistics: Optional[Statistics] = None # not sure that we need that
+    statistics: Optional[Statistics] = None
 
 
