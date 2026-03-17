@@ -19,7 +19,7 @@ def main():
     if 'search_query' not in st.session_state:
         st.session_state.search_query = ""
     
-    # СЕКЦИЯ ПОИСКА
+    # поиск
     st.subheader("Поиск технологии")
 
     search_col1, search_col2 = st.columns([5, 1.5], gap="small")
@@ -76,7 +76,7 @@ def main():
         st.divider()
         col_filters, col_graph = st.columns([1, 3])
         
-        # ПАНЕЛЬ ФИЛЬТРАЦИИ
+        # Панель фильтрации 
         with col_filters:
             st.subheader("Фильтры")
             
@@ -106,7 +106,7 @@ def main():
                     node_filters.append(node_type)
             
         
-        # ВИЗУАЛИЗАЦИЯ ГРАФА
+        # Визуализация графа
         with col_graph:
             st.subheader("Визуализация графа")
             
