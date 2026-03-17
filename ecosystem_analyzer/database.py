@@ -86,9 +86,10 @@ class Database:
     ) -> GraphResponse | None:
         """ Получает подграф технологии из Neo4j. """
 
-        center_node = self._find_technology_node(tech_name)
-        if center_node is None:
+        center_nodes = self._find_nodes(name_contains=tech_name, limit=1)
+        if not center_nodes:
             return None
+        center_node = center_nodes[0]
 
         subgraph = self._service.get_subgraph(
             SubgraphFilter(
@@ -109,15 +110,6 @@ class Database:
         if not nodes:
             return None
         return nodes[0]
-
-    def _get_node_uid(self, node_type: str, node_name: str) -> str:
-        """ Возвращает UID узла по его типу и имени. """
-        found = self._service.find_nodes(
-            NodeFilter(labels=[node_type], name_contains=node_name, limit=1)
-        )
-        if not found:
-            raise RuntimeError(f"Node not found: {node_type} / '{node_name}'")
-        return found[0].uid
 
     def save_graph(
             self,
@@ -140,11 +132,16 @@ class Database:
             nodes_to_create.append(node_create)
 
         created_nodes = self._service.create_nodes_batch(nodes_to_create)
-
-        id_map = {
-            node.id: self._get_node_uid(node.type, node.label)
-            for node in graph.nodes
-        }
+        id_map = {}
+        for node in graph.nodes:
+            found = self._find_nodes(
+                labels=[node.type],
+                name_contains=node.label,
+                limit=1
+            )
+            if not found:
+                raise RuntimeError(f"Node not found: {node.type} / '{node.label}'")
+            id_map[node.id] = found[0].uid
 
 
         relationships_to_create = []
@@ -162,3 +159,33 @@ class Database:
             self._service.create_relationships_batch(relationships_to_create)
 
         return True
+
+    def _find_nodes(
+            self,
+            labels: Optional[List[str]] = None,
+            name_contains: Optional[str] = None,
+            properties_match: Optional[Dict[str, Any]] = None,
+            source: Optional[str] = None,
+            created_after: Optional[datetime] = None,
+            created_before: Optional[datetime] = None,
+            limit: Optional[int] = 1,
+            offset: Optional[int] = 0
+    ) -> List[Node]:
+        """ Ищет узлы и возвращает список NodeResponse из graph.models. """
+        if not self.is_connected():
+            raise RuntimeError("Database not connected. Call connect() first.")
+
+        node_filter = NodeFilter(
+            labels=labels,
+            name_contains=name_contains,
+            properties_match=properties_match,
+            source=source,
+            created_after=created_after,
+            created_before=created_before,
+            limit=limit,
+            offset=offset
+        )
+
+        nodes = self._service.find_nodes(node_filter)
+
+        return nodes
