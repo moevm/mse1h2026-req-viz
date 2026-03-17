@@ -18,14 +18,11 @@ from graph.models import (
 
 logger = logging.getLogger(__name__)
 
-""" Реализует слой доступа к данным для работы с графом Neo4j, предоставляя методы для выполнения CRUD-операций
- над узлами и связями, а также для выборки подграфов по различным критериям."""
+
 class GraphRepository:
     def __init__(self, connection: Neo4jConnection) -> None:
         self._conn = connection
 
-    """ Инициализирует схему Neo4j: выполняет начальную настройку базы данных,
-     добавляя ограничение уникальности на uid и добавляя индексы на name и source. """
     def init_schema(self) -> None:
         constraints = [
             (
@@ -72,7 +69,6 @@ class GraphRepository:
             "labels": {r["label"]: r["count"] for r in label_records},
         }
 
-    """ Создаёт новый узел в базе данных Neo4j и возвращает его в виде объекта NodeResponse. """
     def create_node(self, data: NodeCreate) -> NodeResponse:
         uid = str(uuid.uuid4())
         now = "datetime()"
