@@ -5,16 +5,19 @@ description = ""
 authors = [
     {name = "Polina Kurkina",email = "Polina.Kurkina@oktetlabs.ru"}
 ]
-readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi (>=0.129.2,<0.130.0)",
     "uvicorn (>=0.41.0,<0.42.0)",
     "pydantic (>=2.12.5,<3.0.0)",
     #temporary used for graph
-    "neo4j (>=6.1.0,<7.0.0)",
-    "python-dotenv (>=1.2.1,<2.0.0)"
+#    "neo4j (>=6.1.0,<7.0.0)",
+#    "python-dotenv (>=1.2.1,<2.0.0)"
 ]
+
+[tool.poetry.dependencies]
+graph = { path = "../graph", develop = true }
+parser = { path = "../parser", develop = true }
 
 
 [build-system]
