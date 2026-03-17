@@ -60,12 +60,22 @@ Get graph by source
 async def get_graph(
     source: str = Query(..., description="Technology name (e.g., 'Kafka', 'PostgreSQL')"),
     depth: int = Query(1, ge=1, le=MAX_DEPTH, description="Graph traversal depth"),
-    limit: int = Query(MAX_NODES, ge=1, description="Max nodes to return")
+    limit: int = Query(MAX_NODES, ge=1, description="Max nodes to return"),
+    rel_types: Optional[str] = Query(None, description="Comma-separated relationship types (e.g., 'USED_WITH,DEPENDS_ON')")
 ):
     logger.info(f"Requesting graph for: {source} (depth={depth}, limit={limit})")
+
+    rel_types_list = None
+    if rel_types:
+        rel_types_list = rel_types.split(",")
     
     # Search in DB
-    graph = db.get_graph_by_technology(source, depth=depth, limit=limit)
+    graph = db.get_graph_by_technology(
+        source,
+        depth=depth,
+        limit=limit,
+        rel_types=rel_types_list
+    )
 
     if graph:
         return graph
@@ -88,7 +98,7 @@ async def get_graph(
         logger.error(f"Failed to save graph for '{source}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
     
-    return graph
+    return db.get_graph_by_technology(source, depth=depth, limit=limit)
 
 """ Entry point to the API """
 @app.get("/")
@@ -96,8 +106,6 @@ async def root():
     return {
         "name": "Ecosystem Graph API",
         "endpoints": [
-            {"path": "/api/graph", "method": "GET", "description": "Get graph by source"},
-            {"path": "/api/graph/{graph_id}", "method": "GET", "description": "Get graph by ID"},
-            {"path": "/api/cache/info", "method": "GET", "description": "Cache information"}
+            {"path": "/api/graph", "method": "GET", "description": "Get graph by source"}
         ]
     }
