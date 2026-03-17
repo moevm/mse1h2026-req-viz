@@ -9,21 +9,26 @@ from urllib3.util.retry import Retry
 from config import EDGE_TYPES, EDGE_TYPE_NAMES, BACKEND_BASE_URL, BACKEND_TIMEOUT
 
 
+# Базовое исключение для ошибок бэкенда
 class BackendError(Exception):
     pass
 
 
+# Исключение для ресурса не найден (404)
 class NotFoundError(BackendError):
     pass
 
 
+# HTTP клиент для общения с бэкендом (ecosystem_analyzer)
 class BackendClient:
     
     def __init__(self, base_url: str | None = None, timeout: int = BACKEND_TIMEOUT, max_retries: int = 2):
+        # Инициализация клиента с URL, таймаутом и стратегией повтора
         self.base_url = (base_url or BACKEND_BASE_URL).rstrip("/")
         self.timeout = timeout
         self.session = requests.Session()
 
+        # Стратегия автоматического повтора при временных ошибках
         retries = Retry(
             total=max_retries,
             backoff_factor=0.3,
@@ -34,6 +39,7 @@ class BackendClient:
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
+    # Получить граф для источника (технология, URL и т.п.)
     def get_graph(self, source: str) -> Dict[str, Any]:
         if not source or not source.strip():
             raise ValueError("source must be a non-empty string")
@@ -65,8 +71,10 @@ class BackendClient:
             error_msg += f": {resp.text[:200]}"
         raise BackendError(error_msg)
 
+    # Получить список доступных типов связей
     def get_available_connection_types(self) -> List[str]:
         return EDGE_TYPES
     
+    # Получить человеко-читаемое имя типа связи
     def get_connection_type_display_name(self, type_code: str) -> str:
         return EDGE_TYPE_NAMES.get(type_code, type_code)
