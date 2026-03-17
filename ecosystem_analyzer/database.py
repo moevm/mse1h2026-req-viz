@@ -1,6 +1,6 @@
 import logging
 
-from .models import *
+from .models import Node, Edge, Statistics, GraphResponse
 from graph.service import GraphService
 from graph.connection import Neo4jConnection
 from graph.models import (NodeCreate, RelationshipCreate, NodeFilter,
