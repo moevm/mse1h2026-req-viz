@@ -11,11 +11,10 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import os
 
-# Попытка подключить шрифты с поддержкой кириллицы
+
 def _setup_fonts():
     """Подключение шрифтов с поддержкой кириллицы"""
     try:
-        # Пути к шрифтам в системе (Linux/macOS)
         font_paths = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
@@ -32,7 +31,6 @@ def _setup_fonts():
     except Exception:
         pass
     
-    # Fallback: если шрифты не найдены, использовать встроенные
     return 'Helvetica'
 
 
@@ -65,6 +63,10 @@ class ReportGenerator:
             spaceAfter=12,
             spaceBefore=12
         ))
+        try:
+            self.styles['Normal'].fontName = self.font_name
+        except Exception:
+            pass
     
     def generate_pdf(
         self,
@@ -74,19 +76,7 @@ class ReportGenerator:
         selected_edge_types: List[str] | None = None,
         technology_name: str = "Unknown"
     ) -> BytesIO:
-        """
-        Генерирует PDF-отчет из подграфа (узлов и связей).
-        
-        Args:
-            nodes: Список узлов графа
-            edges: Список связей графа
-            selected_nodes: IDs отфильтрованных узлов (если None — все узлы)
-            selected_edge_types: Типы связей для фильтрации (если None — все связи)
-            technology_name: Название технологии (для заголовка)
-        
-        Returns:
-            BytesIO объект с PDF
-        """
+
         # Фильтрация узлов и связей
         filtered_nodes = self._filter_nodes(nodes, selected_nodes)
         filtered_edges = self._filter_edges(edges, selected_edge_types, filtered_nodes)
@@ -180,7 +170,7 @@ class ReportGenerator:
         
         for node in nodes:
             data.append([
-                node.get('id', 'N/A')[:20],  # обрезаем длинные ID
+                node.get('id', 'N/A')[:20],  
                 node.get('label', 'N/A')[:40],
                 node.get('type', 'N/A')
             ])
