@@ -4,6 +4,7 @@ import pandas as pd
 from config import NODE_TYPE_FILTERS, EDGE_TYPES, EDGE_TYPE_NAMES
 from services import BackendClient, NotFoundError, BackendError
 from visualization import create_graph_visualization
+from report_generator import ReportGenerator
 
 
 def main():
@@ -105,6 +106,31 @@ def main():
                 if st.checkbox(label, value=True, key=f"node_{node_type}"):
                     node_filters.append(node_type)
             
+            st.divider()
+            
+            # Выбор узлов и связей для отчета
+            st.markdown("**Параметры отчёта:**")
+            
+            # Список доступных узлов
+            available_nodes = st.session_state.graph_data.get("nodes", [])
+            node_options = {n.get("id"): f"{n.get('label')} ({n.get('type')})" for n in available_nodes}
+            
+            selected_node_ids = st.multiselect(
+                "Выбрать узлы для отчета (оставьте пусто = все)",
+                options=list(node_options.keys()),
+                format_func=lambda x: node_options.get(x, x),
+                key="report_nodes"
+            )
+            
+            # Выбор типов связей
+            selected_edge_types = st.multiselect(
+                "Выбрать типы связей для отчета (оставьте пусто = все)",
+                options=EDGE_TYPES,
+                format_func=lambda x: EDGE_TYPE_NAMES.get(x, x),
+                key="report_edges"
+            )
+            
+            st.divider()
         
         # Визуализация графа
         with col_graph:
@@ -126,7 +152,42 @@ def main():
         col_export1, col_export2, col_export3 = st.columns([1, 2, 1])
         with col_export2:
             if st.button("Загрузить отчет (PDF)", use_container_width=True, type="secondary"):
-                st.info("Отчет успешно загружен.")
+                try:
+                    # Готовим данные для отчета
+                    report_gen = ReportGenerator()
+                    
+                    # Если узлы не выбраны — берём все отфильтрованные узлы
+                    if not selected_node_ids:
+                        nodes_for_report = [n for n in st.session_state.graph_data["nodes"] if n.get("type") in node_filters]
+                        node_ids_for_report = None
+                    else:
+                        nodes_for_report = st.session_state.graph_data["nodes"]
+                        node_ids_for_report = selected_node_ids
+                    
+                    # Если типы связей не выбраны — берём все
+                    edge_types_for_report = selected_edge_types if selected_edge_types else None
+                    
+                    # Генерируем PDF
+                    pdf_buffer = report_gen.generate_pdf(
+                        nodes=nodes_for_report,
+                        edges=st.session_state.graph_data.get("edges", []),
+                        selected_nodes=node_ids_for_report,
+                        selected_edge_types=edge_types_for_report,
+                        technology_name=st.session_state.search_query
+                    )
+                    
+                    # Предоставляем для скачивания
+                    st.download_button(
+                        label="📥 Скачать PDF",
+                        data=pdf_buffer,
+                        file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
+                        mime="application/pdf",
+                        key="download_report"
+                    )
+                    st.success("✓ Отчет готов к скачиванию!")
+                except Exception as e:
+                    st.error(f"Ошибка при формировании отчета: {str(e)}")
+                    st.info("Убедитесь, что установлен пакет reportlab: pip install reportlab")
     
     
     else:
