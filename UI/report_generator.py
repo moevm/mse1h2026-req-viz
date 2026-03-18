@@ -11,6 +11,18 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import os
 
+NODE_TYPE_TRANSLATIONS = {
+    "Technology": "Технология",
+    "Company": "Компания",
+}
+
+EDGE_TYPE_TRANSLATIONS = {
+    "USED_WITH": "Используется вместе",
+    "ALTERNATIVE_TO": "Альтернатива",
+    "DEPENDS_ON": "Зависит от",
+    "DEVELOPED_BY": "Разработано компанией",
+}
+
 
 def _setup_fonts():
     try:
@@ -47,7 +59,6 @@ class ReportGenerator:
             parent=self.styles['Heading1'],
             fontSize=24,
             fontName=self.font_name,
-            textColor=colors.HexColor('#1f77b4'),
             spaceAfter=20,
             alignment=1  
         ))
@@ -56,7 +67,6 @@ class ReportGenerator:
             parent=self.styles['Heading2'],
             fontSize=14,
             fontName=self.font_name,
-            textColor=colors.HexColor('#2ca02c'),
             spaceAfter=12,
             spaceBefore=12
         ))
@@ -101,13 +111,13 @@ class ReportGenerator:
         story.append(Spacer(1, 0.3 * inch))
         
         # Таблица узлов
-        story.append(Paragraph("Узлы (Вершины)", self.styles['Heading_Custom']))
+        story.append(Paragraph("Узлы", self.styles['Heading_Custom']))
         nodes_table = self._create_nodes_table(filtered_nodes)
         story.append(nodes_table)
         story.append(Spacer(1, 0.2 * inch))
         
         # Таблица связей
-        story.append(Paragraph("Связи (Рёбра)", self.styles['Heading_Custom']))
+        story.append(Paragraph("Связи", self.styles['Heading_Custom']))
         edges_table = self._create_edges_table(filtered_edges, filtered_nodes)
         story.append(edges_table)
         story.append(Spacer(1, 0.2 * inch))
@@ -153,28 +163,25 @@ class ReportGenerator:
         return result
     
     def _create_nodes_table(self, nodes: List[Dict[str, Any]]) -> Table:
-        """Создаёт таблицу узлов"""
         data = [["Название", "Тип"]]
         
         for node in nodes:
+            node_type = node.get('type', 'N/A')
+            translated_type = NODE_TYPE_TRANSLATIONS.get(node_type, node_type)
             data.append([
                 node.get('label', 'N/A')[:40],
-                node.get('type', 'N/A')
+                translated_type
             ])
         
         table = Table(data, colWidths=[4*inch, 2*inch])
         table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2ca02c')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (-1, 0), self.font_name),
             ('FONTNAME', (0, 1), (-1, -1), self.font_name),
             ('FONTSIZE', (0, 0), (-1, 0), 11),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
         ]))
         
         return table
@@ -191,28 +198,26 @@ class ReportGenerator:
         for edge in edges:
             source_node = node_map.get(edge.get('source'), {})
             target_node = node_map.get(edge.get('target'), {})
+            edge_type = edge.get('type', 'N/A')
+            translated_edge_type = EDGE_TYPE_TRANSLATIONS.get(edge_type, edge_type)
             
             data.append([
                 source_node.get('label', edge.get('source', 'N/A'))[:25],
                 target_node.get('label', edge.get('target', 'N/A'))[:25],
-                edge.get('type', 'N/A'),
+                translated_edge_type,
                 f"{edge.get('weight', 0):.2f}"
             ])
         
-        table = Table(data, colWidths=[2*inch, 2*inch, 1.5*inch, 1*inch])
+        table = Table(data, colWidths=[1.8*inch, 1.5*inch, 2.2*inch, 0.8*inch])
         table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f77b4')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('ALIGN', (3, 0), (3, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), self.font_name),
             ('FONTNAME', (0, 1), (-1, -1), self.font_name),
             ('FONTSIZE', (0, 0), (-1, 0), 11),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.lightblue),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightcyan])
         ]))
         
         return table
@@ -236,29 +241,27 @@ class ReportGenerator:
             ["Метрика", "Значение"],
             ["Всего узлов", str(len(nodes))],
             ["Всего связей", str(len(edges))],
-            ["Типы узлов", ", ".join(node_types.keys())],
-            ["Типы связей", ", ".join(edge_types.keys())],
+            ["Типы узлов", ", ".join([NODE_TYPE_TRANSLATIONS.get(t, t) for t in node_types.keys()])],
+            ["Типы связей", ", ".join([EDGE_TYPE_TRANSLATIONS.get(t, t) for t in edge_types.keys()])],
         ]
         
         for node_type, count in node_types.items():
-            data.append([f"  Узлов типа '{node_type}'", str(count)])
+            translated_type = NODE_TYPE_TRANSLATIONS.get(node_type, node_type)
+            data.append([f"  {translated_type}", str(count)])
         
         for edge_type, count in edge_types.items():
-            data.append([f"  Связей типа '{edge_type}'", str(count)])
+            translated_type = EDGE_TYPE_TRANSLATIONS.get(edge_type, edge_type)
+            data.append([f"  {translated_type}", str(count)])
         
-        table = Table(data, colWidths=[3.5*inch, 2.5*inch])
+        table = Table(data, colWidths=[2.5*inch, 3.5*inch])
         table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#ff7f0e')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
             ('FONTNAME', (0, 0), (-1, -1), self.font_name),
             ('FONTSIZE', (0, 0), (-1, 0), 11),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.lightyellow),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightyellow])
         ]))
         
         return table
