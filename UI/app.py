@@ -148,13 +148,11 @@ def main():
             )
         
         with col_report3:
-            st.write("")  # spacer
+            st.write("")  
             if st.button("Скачать отчет (PDF)", use_container_width=True, type="primary"):
                 try:
-                    # Готовим данные для отчета
                     report_gen = ReportGenerator()
                     
-                    # Если узлы не выбраны — берём все отфильтрованные узлы
                     if not selected_node_ids:
                         nodes_for_report = [n for n in st.session_state.graph_data["nodes"] if n.get("type") in node_filters]
                         node_ids_for_report = None
@@ -162,10 +160,8 @@ def main():
                         nodes_for_report = st.session_state.graph_data["nodes"]
                         node_ids_for_report = selected_node_ids
                     
-                    # Если типы связей не выбраны — берём все
                     edge_types_for_report = selected_edge_types if selected_edge_types else None
                     
-                    # Генерируем PDF
                     pdf_buffer = report_gen.generate_pdf(
                         nodes=nodes_for_report,
                         edges=st.session_state.graph_data.get("edges", []),
@@ -174,7 +170,6 @@ def main():
                         technology_name=st.session_state.search_query
                     )
                     
-                    # Предоставляем для скачивания
                     st.download_button(
                         label="Скачать PDF",
                         data=pdf_buffer,

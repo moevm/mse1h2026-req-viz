@@ -102,7 +102,7 @@ class ReportGenerator:
         title = Paragraph(f"Анализ: {technology_name}", self.styles['Title_Custom'])
         story.append(title)
         
-        # Дата создания
+        # дата создания
         timestamp = Paragraph(
             f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}",
             self.styles['Normal']
@@ -110,19 +110,19 @@ class ReportGenerator:
         story.append(timestamp)
         story.append(Spacer(1, 0.3 * inch))
         
-        # Таблица узлов
+        # таблица узлов
         story.append(Paragraph("Узлы", self.styles['Heading_Custom']))
         nodes_table = self._create_nodes_table(filtered_nodes)
         story.append(nodes_table)
         story.append(Spacer(1, 0.2 * inch))
         
-        # Таблица связей
+        # таблица связей
         story.append(Paragraph("Связи", self.styles['Heading_Custom']))
         edges_table = self._create_edges_table(filtered_edges, filtered_nodes)
         story.append(edges_table)
         story.append(Spacer(1, 0.2 * inch))
         
-        # Статистика
+        # статистика
         story.append(Paragraph("Статистика", self.styles['Heading_Custom']))
         stats_table = self._create_stats_table(filtered_nodes, filtered_edges)
         story.append(stats_table)
