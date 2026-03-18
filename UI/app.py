@@ -99,38 +99,11 @@ def main():
             
             st.divider()
             
-            # Фильтры по типам узлов
             st.markdown("**Типы узлов:**")
             node_filters = []
             for node_type, label in NODE_TYPE_FILTERS:
                 if st.checkbox(label, value=True, key=f"node_{node_type}"):
                     node_filters.append(node_type)
-            
-            st.divider()
-            
-            # Выбор узлов и связей для отчета
-            st.markdown("**Параметры отчёта:**")
-            
-            # Список доступных узлов
-            available_nodes = st.session_state.graph_data.get("nodes", [])
-            node_options = {n.get("id"): f"{n.get('label')} ({n.get('type')})" for n in available_nodes}
-            
-            selected_node_ids = st.multiselect(
-                "Выбрать узлы для отчета (оставьте пусто = все)",
-                options=list(node_options.keys()),
-                format_func=lambda x: node_options.get(x, x),
-                key="report_nodes"
-            )
-            
-            # Выбор типов связей
-            selected_edge_types = st.multiselect(
-                "Выбрать типы связей для отчета (оставьте пусто = все)",
-                options=EDGE_TYPES,
-                format_func=lambda x: EDGE_TYPE_NAMES.get(x, x),
-                key="report_edges"
-            )
-            
-            st.divider()
         
         # Визуализация графа
         with col_graph:
@@ -148,10 +121,35 @@ def main():
                 st.error(f"Ошибка визуализации: {str(e)}")
                 st.warning("Попробуйте нажать 'Обновить визуализацию' или перезагрузить страницу.")
         
+        st.divider()
+        st.subheader("Параметры отчёта")
         
-        col_export1, col_export2, col_export3 = st.columns([1, 2, 1])
-        with col_export2:
-            if st.button("Загрузить отчет (PDF)", use_container_width=True, type="secondary"):
+        col_report1, col_report2, col_report3 = st.columns([1, 1, 1], gap="medium")
+        
+        available_nodes = st.session_state.graph_data.get("nodes", [])
+        node_options = {n.get("id"): f"{n.get('label')} ({n.get('type')})" for n in available_nodes}
+        
+        with col_report1:
+            selected_node_ids = st.multiselect(
+                "Узлы для отчета",
+                options=list(node_options.keys()),
+                format_func=lambda x: node_options.get(x, x),
+                key="report_nodes",
+                help="Оставьте пусто = все узлы"
+            )
+        
+        with col_report2:
+            selected_edge_types = st.multiselect(
+                "Типы связей для отчета",
+                options=EDGE_TYPES,
+                format_func=lambda x: EDGE_TYPE_NAMES.get(x, x),
+                key="report_edges",
+                help="Оставьте пусто = все типы"
+            )
+        
+        with col_report3:
+            st.write("")  # spacer
+            if st.button("Скачать отчет (PDF)", use_container_width=True, type="primary"):
                 try:
                     # Готовим данные для отчета
                     report_gen = ReportGenerator()
@@ -178,13 +176,13 @@ def main():
                     
                     # Предоставляем для скачивания
                     st.download_button(
-                        label="📥 Скачать PDF",
+                        label="Скачать PDF",
                         data=pdf_buffer,
                         file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
                         mime="application/pdf",
                         key="download_report"
                     )
-                    st.success("✓ Отчет готов к скачиванию!")
+                    st.success(" Отчет готов!")
                 except Exception as e:
                     st.error(f"Ошибка при формировании отчета: {str(e)}")
                     st.info("Убедитесь, что установлен пакет reportlab: pip install reportlab")
