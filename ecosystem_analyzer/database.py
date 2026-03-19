@@ -158,7 +158,7 @@ class Database:
 
         return nodes
     @staticmethod
-    def _convert2GraphResponse(subgraph: SubgraphResponse) -> GraphResponse:
+    def _to_api_format(subgraph: SubgraphResponse) -> GraphResponse:
         """ Преобразует SubgraphResponse (graph.models) → GraphResponse (ecosystem_analyzer.models).
         Результат является унифицированным форматом для взаимодействия всех 4 модулей системы. """
         nodes = [
