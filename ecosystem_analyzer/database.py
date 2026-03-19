@@ -44,6 +44,7 @@ class Database:
             self._service = None
 
     def is_connected(self) -> bool:
+        """ Проверка, что соединение открыто. """
         return self._conn is not None
 
     def get_graph_by_technology(
