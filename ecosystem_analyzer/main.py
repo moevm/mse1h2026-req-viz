@@ -7,9 +7,14 @@ import logging
 
 from ecosystem_analyzer.models import GraphResponse
 from ecosystem_analyzer.database import Database
-from ecosystem_analyzer.parser import parser
+from ecosystem_analyzer.parser import ParserWrapper
+
 MAX_DEPTH = 10 # Max depth of graph response TODO: remove or replace to env file
 MAX_NODES = 100 # Max nodes to return
+ALLOWED_REL_TYPES = {
+    "USED_WITH", "ALTERNATIVE_FOR", "DEPENDS_ON",
+    "DEVELOPED_BY", "USES_LICENSE"
+}
 
 app = FastAPI()
 
@@ -30,6 +35,8 @@ db = Database(
     password=os.getenv("NEO4J_PASSWORD", "test1234"),
     database=os.getenv("NEO4J_DATABASE", "neo4j")
 )
+
+parser = ParserWrapper()
 
 @app.on_event("startup")
 def startup_event():
@@ -58,20 +65,20 @@ Get graph by source
 """
 @app.get("/api/graph", response_model=GraphResponse)
 async def get_graph(
-    source: str = Query(..., description="Technology name (e.g., 'Kafka', 'PostgreSQL')"),
+    technology: str = Query(..., description="Technology name (e.g., 'Kafka', 'PostgreSQL')"),
     depth: int = Query(1, ge=1, le=MAX_DEPTH, description="Graph traversal depth"),
     limit: int = Query(MAX_NODES, ge=1, description="Max nodes to return"),
     rel_types: Optional[str] = Query(None, description="Comma-separated relationship types (e.g., 'USED_WITH,DEPENDS_ON')")
 ):
-    logger.info(f"Requesting graph for: {source} (depth={depth}, limit={limit})")
+    logger.info(f"Requesting graph for: {technology} (depth={depth}, limit={limit})")
 
-    rel_types_list = None
+    rel_types_list = ALLOWED_REL_TYPES
     if rel_types:
         rel_types_list = rel_types.split(",")
     
     # Search in DB
     graph = db.get_graph_by_technology(
-        source,
+        technology,
         depth=depth,
         limit=limit,
         rel_types=rel_types_list
@@ -82,9 +89,9 @@ async def get_graph(
     
     # Parse
     try:
-        graph = parser.parse_graph(source)
+        graph = parser.parse_graph(technology, rel_types)
     except Exception as e:
-        logger.error(f"Parser error for '{source}': {e}", exc_info=True)
+        logger.error(f"Parser error for '{technology}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Parser error: {str(e)}")
     
     if not graph:
@@ -93,12 +100,12 @@ async def get_graph(
     
     # Save in DB
     try:
-        db.save_graph(graph, source=source)
+        db.save_graph(graph, source=technology)
     except Exception as e:
-        logger.error(f"Failed to save graph for '{source}': {e}", exc_info=True)
+        logger.error(f"Failed to save graph for '{technology}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
     
-    return db.get_graph_by_technology(source, depth=depth, limit=limit)
+    return db.get_graph_by_technology(technology, depth=depth, limit=limit)
 
 """ Entry point to the API """
 @app.get("/")
