@@ -70,15 +70,6 @@ class Database:
 
         return self._to_api_format(subgraph)
 
-    def _find_technology_node(self, name: str) -> Optional[object]:
-        """ Ищет узел по имени и возвращает NodeResponse из graph.models. """
-        nodes = self._service.find_nodes(
-            NodeFilter(name_contains=name)
-        )
-        if not nodes:
-            return None
-        return nodes[0]
-
     def save_graph(
             self,
             graph: GraphResponse,
