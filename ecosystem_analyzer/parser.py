@@ -24,7 +24,10 @@ class ParserWrapper:
 
         return self._convert_to_graph_response(raw_graph)
 
-    def _convert_to_graph_response(self, raw_graph: dict) -> GraphResponse:
+    @staticmethod
+    def _to_api_format(self, raw_graph: dict) -> GraphResponse:
+        """ Преобразует граф от парсера (parser/parser) → GraphResponse (ecosystem_analyzer.models).
+        Результат является унифицированным форматом для взаимодействия всех 4 модулей системы. """
         nodes = [
             Node(
                 id=node["id"],
