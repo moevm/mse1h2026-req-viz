@@ -1,10 +1,10 @@
 import logging
-
-from .models import *
+from typing import List, Optional
+from .models import GraphResponse
 from graph.service import GraphService
 from graph.connection import Neo4jConnection
 from graph.models import (NodeCreate, RelationshipCreate, NodeFilter,
-                          SubgraphFilter, SubgraphResponse)
+                          SubgraphFilter, SubgraphResponse, NodeResponse)
 from graph.exceptions import NodeNotFoundError, GraphConnectionError
 
 
@@ -129,7 +129,7 @@ class Database:
             created_before: Optional[datetime] = None,
             limit: Optional[int] = 1,
             offset: Optional[int] = 0
-    ) -> List[Node]:
+    ) -> List[NodeResponse]:
         """ Ищет узлы и возвращает список NodeResponse из graph.models. """
         if not self.is_connected():
             raise RuntimeError("Database not connected. Call connect() first.")
