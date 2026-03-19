@@ -37,6 +37,7 @@ class Database:
         self._service.init_schema()
 
     def disconnect(self) -> None:
+        """ Закрывает соединение с Neo4j. """
         if self._conn is not None:
             self._conn.close()
             self._conn = None
