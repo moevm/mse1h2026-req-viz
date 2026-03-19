@@ -157,7 +157,7 @@ class Database:
         nodes = self._service.find_nodes(node_filter)
 
         return nodes
-
+    @staticmethod
     def _convert2GraphResponse(subgraph: SubgraphResponse) -> GraphResponse:
         nodes = [
             Node(
