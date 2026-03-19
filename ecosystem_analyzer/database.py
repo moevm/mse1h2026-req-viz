@@ -158,7 +158,7 @@ class Database:
 
         return nodes
 
-    def _to_graph_response(subgraph: SubgraphResponse) -> GraphResponse:
+    def _convert2GraphResponse(subgraph: SubgraphResponse) -> GraphResponse:
         nodes = [
             Node(
                 id=node.uid,
