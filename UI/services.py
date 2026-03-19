@@ -1,86 +1,80 @@
 # services.py
+import os
 from typing import List, Dict, Any
-from config import EDGE_TYPES, EDGE_TYPE_NAMES
+import requests
+from requests.adapters import HTTPAdapter
+from requests.exceptions import RequestException, Timeout
+from urllib3.util.retry import Retry
+
+from config import EDGE_TYPES, EDGE_TYPE_NAMES, BACKEND_BASE_URL, BACKEND_TIMEOUT
 
 
-class MockBackendService:
-    """Сервис-заглушка для имитации бэкенда"""
+# Базовое исключение для ошибок бэкенда
+class BackendError(Exception):
+    pass
+
+
+# Исключение для ресурса не найден (404)
+class NotFoundError(BackendError):
+    pass
+
+
+# HTTP клиент для общения с бэкендом (ecosystem_analyzer)
+class BackendClient:
     
-    @staticmethod
-    def get_available_connection_types() -> List[str]:
+    def __init__(self, base_url: str | None = None, timeout: int = BACKEND_TIMEOUT, max_retries: int = 2):
+        # Инициализация клиента с URL, таймаутом и стратегией повтора
+        self.base_url = (base_url or BACKEND_BASE_URL).rstrip("/")
+        self.timeout = timeout
+        self.session = requests.Session()
+
+        # Стратегия автоматического повтора при временных ошибках
+        retries = Retry(
+            total=max_retries,
+            backoff_factor=0.3,
+            status_forcelist=(429, 500, 502, 503, 504),
+            allowed_methods=frozenset(["GET", "POST"]),
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+
+    # Получить граф для источника (технология, URL и т.п.)
+    def get_graph(self, source: str) -> Dict[str, Any]:
+        if not source or not source.strip():
+            raise ValueError("source must be a non-empty string")
+        
+        url = f"{self.base_url}/api/graph"
+        try:
+            resp = self.session.get(url, params={"source": source}, timeout=self.timeout)
+        except Timeout as e:
+            raise BackendError("request timed out (server took too long to respond)") from e
+        except RequestException as e:
+            raise BackendError("network error (failed to connect to backend)") from e
+
+        if resp.status_code == 200:
+            try:
+                data = resp.json()
+            except ValueError as e:
+                raise BackendError("invalid JSON response from backend") from e
+            
+            if not isinstance(data, dict) or "nodes" not in data or "edges" not in data:
+                raise BackendError("unexpected response format from backend (missing nodes or edges)")
+            
+            return data
+        
+        if resp.status_code == 404:
+            raise NotFoundError(f"graph not found for source '{source}'")
+        
+        error_msg = f"backend returned status {resp.status_code}"
+        if resp.text:
+            error_msg += f": {resp.text[:200]}"
+        raise BackendError(error_msg)
+
+    # Получить список доступных типов связей
+    def get_available_connection_types(self) -> List[str]:
         return EDGE_TYPES
     
-    @staticmethod
-    def get_connection_type_display_name(type_code: str) -> str:
+    # Получить человеко-читаемое имя типа связи
+    def get_connection_type_display_name(self, type_code: str) -> str:
         return EDGE_TYPE_NAMES.get(type_code, type_code)
-    
-    @staticmethod
-    def search_technology(query: str) -> Dict[str, Any]:
-        mock_db = {
-            "kafka": {
-                "id": "tech_001",
-                "name": "Apache Kafka",
-                "type": "Technology",
-                "category": "Message Broker"
-            },
-            "rabbitmq": {
-                "id": "tech_002",
-                "name": "RabbitMQ",
-                "type": "Technology",
-                "category": "Message Broker"
-            },
-            "postgresql": {
-                "id": "tech_003",
-                "name": "PostgreSQL",
-                "type": "Technology",
-                "category": "Database"
-            },
-            "docker": {
-                "id": "tech_004",
-                "name": "Docker",
-                "type": "Technology",
-                "category": "Containerization"
-            },
-            "kubernetes": {
-                "id": "tech_005",
-                "name": "Kubernetes",
-                "type": "Technology",
-                "category": "Orchestration"
-            }
-        }
-        return mock_db.get(query.lower().strip(), None)
-    
-    @staticmethod
-    def build_graph(technology_name: str) -> Dict[str, Any]:
-        """Построение графа зависимостей (без лицензий)"""
-        mock_graph = {
-            "nodes": [
-                {"id": "tech_001", "label": "Apache Kafka", "type": "Technology"},
-                {"id": "tech_002", "label": "RabbitMQ", "type": "Technology"},
-                {"id": "tech_006", "label": "Zookeeper", "type": "Technology"},
-                {"id": "tech_007", "label": "Spark", "type": "Technology"},
-                {"id": "tech_008", "label": "Flink", "type": "Technology"},
-                {"id": "comp_001", "label": "Confluent", "type": "Company"},
-                {"id": "comp_002", "label": "Apache Foundation", "type": "Company"},
-                {"id": "tech_009", "label": "Python", "type": "Technology"},
-                {"id": "tech_010", "label": "Java", "type": "Technology"},
-            ],
-            "edges": [
-                {"source": "tech_001", "target": "tech_002", "type": "ALTERNATIVE_TO", "weight": 0.9},
-                {"source": "tech_001", "target": "tech_006", "type": "DEPENDS_ON", "weight": 1.0},
-                {"source": "tech_001", "target": "tech_007", "type": "USED_WITH", "weight": 0.85},
-                {"source": "tech_001", "target": "tech_008", "type": "USED_WITH", "weight": 0.75},
-                {"source": "tech_001", "target": "comp_001", "type": "DEVELOPED_BY", "weight": 1.0},
-                {"source": "tech_001", "target": "comp_002", "type": "DEVELOPED_BY", "weight": 1.0},
-                {"source": "tech_001", "target": "tech_009", "type": "USED_WITH", "weight": 0.8},
-                {"source": "tech_001", "target": "tech_010", "type": "USED_WITH", "weight": 0.95},
-                {"source": "tech_007", "target": "tech_009", "type": "USED_WITH", "weight": 0.9},
-                {"source": "tech_008", "target": "tech_010", "type": "USED_WITH", "weight": 0.85},
-            ],
-            "statistics": {
-                "total_nodes": 9,
-                "total_edges": 10,
-                "max_depth": 2
-            }
-        }
-        return mock_graph
