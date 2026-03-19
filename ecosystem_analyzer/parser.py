@@ -3,7 +3,7 @@ from .models import Node, Edge, Statistics, GraphResponse
 from parser.parser import Parser
 
 class ParserWrapper:
-    """ Parser wrapper """
+    """  Обертка над классом Parser из модуля parser. """
     def __init__(self):
         self._parser =  Parser()
     def parse_graph(
@@ -11,6 +11,7 @@ class ParserWrapper:
             technology: str,
             relationships: Optional[List[str]] = None
     ) -> Optional[GraphResponse]:
+        """ Получить граф для заданной технологии и списка отношений. """
         raw_graph: Dict[str, Any]
         try:
             raw_graph = self._parser.graph(
