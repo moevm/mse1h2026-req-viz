@@ -8,38 +8,6 @@ from graph.models import (NodeCreate, RelationshipCreate, NodeFilter,
 from graph.exceptions import NodeNotFoundError, GraphConnectionError
 
 
-def _to_graph_response(subgraph: SubgraphResponse) -> GraphResponse:
-    nodes = [
-        Node(
-            id=node.uid,
-            label=node.name,
-            type=node.label
-        )
-        for node in subgraph.nodes
-    ]
-
-    edges = [
-        Edge(
-            source=rel.source_uid,
-            target=rel.target_uid,
-            type=rel.rel_type,
-            weight=rel.weight
-        )
-        for rel in subgraph.relationships
-    ]
-
-    statistics = Statistics(
-        total_nodes=subgraph.total_nodes,
-        total_edges=subgraph.total_relationships
-    )
-
-    return GraphResponse(
-        nodes=nodes,
-        edges=edges,
-        statistics=statistics
-    )
-
-
 class Database:
     """ Обёртка над GraphService для управления подключением к Neo4j. """
 
@@ -189,3 +157,34 @@ class Database:
         nodes = self._service.find_nodes(node_filter)
 
         return nodes
+
+    def _to_graph_response(subgraph: SubgraphResponse) -> GraphResponse:
+        nodes = [
+            Node(
+                id=node.uid,
+                label=node.name,
+                type=node.label
+            )
+            for node in subgraph.nodes
+        ]
+
+        edges = [
+            Edge(
+                source=rel.source_uid,
+                target=rel.target_uid,
+                type=rel.rel_type,
+                weight=rel.weight
+            )
+            for rel in subgraph.relationships
+        ]
+
+        statistics = Statistics(
+            total_nodes=subgraph.total_nodes,
+            total_edges=subgraph.total_relationships
+        )
+
+        return GraphResponse(
+            nodes=nodes,
+            edges=edges,
+            statistics=statistics
+        )
