@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from .models import Node, Edge, Statistics, GraphResponse
 from parser.parser import Parser
 
@@ -11,21 +11,19 @@ class ParserWrapper:
             technology: str,
             relationships: Optional[List[str]] = None
     ) -> Optional[GraphResponse]:
+        raw_graph: Dict[str, Any]
         try:
             raw_graph = self._parser.graph(
                 technologies=[technology],
                 relationships=relationships
             )
-        except ValueError as e:
-            # Технология не найдена в Wikidata
-            if "Неизвестные технологии" in str(e):
-                return None
-            raise
+        except ValueError:
+            return None
 
-        return self._convert_to_graph_response(raw_graph)
+        return self._to_api_format(raw_graph)
 
     @staticmethod
-    def _to_api_format(self, raw_graph: dict) -> GraphResponse:
+    def _to_api_format(raw_graph: dict) -> GraphResponse:
         """ Преобразует граф от парсера (parser/parser) → GraphResponse (ecosystem_analyzer.models).
         Результат является унифицированным форматом для взаимодействия всех 4 модулей системы. """
         nodes = [
