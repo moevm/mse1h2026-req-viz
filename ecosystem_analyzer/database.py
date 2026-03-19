@@ -68,7 +68,7 @@ class Database:
             )
         )
 
-        return _to_graph_response(subgraph)
+        return self._to_api_format(subgraph)
 
     def _find_technology_node(self, name: str) -> Optional[object]:
         """ Ищет узел по имени и возвращает NodeResponse из graph.models. """
