@@ -1,13 +1,60 @@
-import time
-import random
-from .models import GraphResponse, Statistics
-from typing import Optional
+from typing import Optional, List, Dict, Any
+from .models import Node, Edge, Statistics, GraphResponse
+from parser.parser import Parser
 
-""" Parser stub """
-class SimpleParser:
-    def parse_graph(self, source_key: str) -> Optional[GraphResponse]:
-        time.sleep(5)
-        return MOCK_GRAPH
+class ParserWrapper:
+    """  Обертка над классом Parser из модуля parser. """
+    def __init__(self):
+        self._parser =  Parser()
+    def parse_graph(
+            self,
+            technology: str,
+            relationships: Optional[List[str]] = None
+    ) -> Optional[GraphResponse]:
+        """ Получить граф для заданной технологии и списка отношений. """
+        raw_graph: Dict[str, Any]
+        try:
+            raw_graph = self._parser.graph(
+                technologies=[technology],
+                relationships=relationships
+            )
+        except ValueError:
+            return None
+
+        return self._to_api_format(raw_graph)
+
+    @staticmethod
+    def _to_api_format(raw_graph: dict) -> GraphResponse:
+        """ Преобразует граф от парсера (parser/parser) → GraphResponse (ecosystem_analyzer.models).
+        Результат является унифицированным форматом для взаимодействия всех 4 модулей системы. """
+        nodes = [
+            Node(
+                id=node["id"],
+                label=node["name"],
+            )
+            for node in raw_graph.get("nodes", [])
+        ]
+
+        edges = [
+            Edge(
+                source=edge["source"],
+                target=edge["target"],
+                type=edge["predicate"],
+                weight=1.0  # Парсер не возвращает веса, ставим дефолт
+            )
+            for edge in raw_graph.get("edges", [])
+        ]
+
+        return GraphResponse(
+            nodes=nodes,
+            edges=edges,
+            statistics=Statistics(
+                total_nodes=len(nodes),
+                total_edges=len(edges),
+                max_depth=None,
+                truncated=False
+            )
+        )
 
 MOCK_GRAPH = GraphResponse(
     nodes=[
@@ -28,4 +75,3 @@ MOCK_GRAPH = GraphResponse(
     )
 )
 
-parser = SimpleParser()

@@ -65,6 +65,6 @@ class BackendClient:
 
     def get_available_connection_types(self) -> List[str]:
         return EDGE_TYPES
-    
+ 
     def get_connection_type_display_name(self, type_code: str) -> str:
         return EDGE_TYPE_NAMES.get(type_code, type_code)

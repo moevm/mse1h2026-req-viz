@@ -115,6 +115,7 @@ def main():
                 if st.checkbox(label, value=True, key=f"node_{node_type}"):
                     node_filters.append(node_type)
         
+
         with col_graph:
             st.subheader("Визуализация графа")
             
