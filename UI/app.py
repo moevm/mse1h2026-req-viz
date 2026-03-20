@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from config import NODE_TYPE_FILTERS, EDGE_TYPES, EDGE_TYPE_NAMES
+from config import NODE_TYPE_FILTERS, EDGE_TYPES, EDGE_TYPE_NAMES, WEIGHTED_EDGE_TYPES, BINARY_EDGE_TYPES
 from services import BackendClient, NotFoundError, BackendError
 from visualization import create_graph_visualization
 from report_generator import ReportGenerator
@@ -78,23 +78,36 @@ def main():
         with col_filters:
             st.subheader("Фильтры")
             
-            st.markdown("**Минимальный вес связей:**")
-            
             edge_weight_thresholds = {}
-            for edge_type in EDGE_TYPES:
-                display_name = EDGE_TYPE_NAMES.get(edge_type, edge_type)
-                threshold = st.slider(
-                    f"{display_name}",
-                    min_value=0.0,
-                    max_value=1.0,
-                    value=1.0,  
-                    step=0.1,
-                    key=f"threshold_{edge_type}",
-                    format="%.1f"
-                )
-                edge_weight_thresholds[edge_type] = threshold
+            binary_edge_filters = {}
             
-            st.divider()
+            if WEIGHTED_EDGE_TYPES:
+                st.markdown("**Минимальный вес связей:**")
+                for edge_type in WEIGHTED_EDGE_TYPES:
+                    display_name = EDGE_TYPE_NAMES.get(edge_type, edge_type)
+                    threshold = st.slider(
+                        f"{display_name}",
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=1.0,
+                        step=0.1,
+                        key=f"threshold_{edge_type}",
+                        format="%.1f"
+                    )
+                    edge_weight_thresholds[edge_type] = threshold
+                st.divider()
+            
+            if BINARY_EDGE_TYPES:
+                st.markdown("**Показывать связи:**")
+                for edge_type in BINARY_EDGE_TYPES:
+                    display_name = EDGE_TYPE_NAMES.get(edge_type, edge_type)
+                    is_checked = st.checkbox(
+                        display_name,
+                        value=True,
+                        key=f"binary_{edge_type}"
+                    )
+                    binary_edge_filters[edge_type] = is_checked
+                st.divider()
             
             st.markdown("**Типы узлов:**")
             node_filters = []
@@ -110,7 +123,8 @@ def main():
                     nodes=st.session_state.graph_data["nodes"],
                     edges=st.session_state.graph_data["edges"],
                     node_filters=node_filters,
-                    edge_weight_thresholds=edge_weight_thresholds  
+                    edge_weight_thresholds=edge_weight_thresholds,
+                    binary_edge_filters=binary_edge_filters
                 )
                 st.components.v1.html(html_viz, height=550, scrolling=False)
             except Exception as e:

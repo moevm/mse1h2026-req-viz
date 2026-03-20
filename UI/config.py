@@ -50,3 +50,13 @@ EDGE_TYPE_TRANSLATIONS: Dict[str, str] = {
     "DEPENDS_ON": "Зависит от",
     "DEVELOPED_BY": "Разработано компанией",
 }
+
+WEIGHTED_EDGE_TYPES: List[str] = [
+    "USED_WITH",
+    "DEPENDS_ON"
+]
+
+BINARY_EDGE_TYPES: List[str] = [
+    "ALTERNATIVE_TO",
+    "DEVELOPED_BY"
+]
