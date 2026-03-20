@@ -10,12 +10,14 @@ RUN pip install --no-cache-dir poetry==$POETRY_VERSION
 
 WORKDIR /app
 
-COPY pyproject.toml poetry.lock ./
+COPY graph /app/graph
 
-RUN poetry config virtualenvs.create false \
-    && poetry install --only main --no-root
+COPY ecosystem_analyzer/pyproject.toml ecosystem_analyzer/poetry.lock /app/ecosystem_analyzer/
 
-COPY . ./ecosystem_analyzer
+RUN poetry -C /app/ecosystem_analyzer config virtualenvs.create false \
+    && poetry -C /app/ecosystem_analyzer install --only main --no-root
+
+COPY ecosystem_analyzer /app/ecosystem_analyzer
 
 EXPOSE 8000
 

@@ -1,5 +1,5 @@
 [project]
-name = "mse1h2026-req-viz"
+name = "graph"
 version = "0.1.0"
 description = ""
 authors = [
