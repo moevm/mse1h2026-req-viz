@@ -13,32 +13,32 @@ import os
 from config import NODE_TYPE_TRANSLATIONS, EDGE_TYPE_TRANSLATIONS
 
 
-def _setup_fonts():
-    try:
-        font_paths = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-            "/System/Library/Fonts/Arial.ttf",  
-        ]
-        
-        for font_path in font_paths:
-            if os.path.exists(font_path):
-                try:
-                    pdfmetrics.registerFont(TTFont('CustomFont', font_path))
-                    return 'CustomFont'
-                except Exception:
-                    continue
-    except Exception:
-        pass
-    
-    return 'Helvetica'
-
-
 class ReportGenerator:
+    
+    @staticmethod
+    def _setup_fonts():
+        try:
+            font_paths = [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "/System/Library/Fonts/Arial.ttf",  
+            ]
+            
+            for font_path in font_paths:
+                if os.path.exists(font_path):
+                    try:
+                        pdfmetrics.registerFont(TTFont('CustomFont', font_path))
+                        return 'CustomFont'
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+        
+        return 'Helvetica'
     
     def __init__(self, title: str = "Отчет по технологическим зависимостям"):
         self.title = title
-        self.font_name = _setup_fonts()
+        self.font_name = self._setup_fonts()
         self.styles = getSampleStyleSheet()
         self._setup_custom_styles()
     
