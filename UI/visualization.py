@@ -4,12 +4,10 @@ from config import NODE_COLORS, EDGE_COLORS, DASHED_EDGE_TYPES
 
 
 def get_node_color(node_type: str) -> str:
-    """Возвращает цвет узла по типу"""
     return NODE_COLORS.get(node_type, "#9E9E9E")
 
 
 def get_edge_color(edge_type: str) -> str:
-    """Возвращает цвет связи по типу"""
     return EDGE_COLORS.get(edge_type, "#9E9E9E")
 
 
@@ -20,11 +18,9 @@ def create_graph_visualization(
     edge_weight_thresholds: dict
 ) -> str:
 
-    # Фильтрация узлов
     filtered_nodes = [n for n in nodes if n["type"] in node_filters]
     filtered_node_ids = {n["id"] for n in filtered_nodes}
     
-    # Фильтрация связей
     filtered_edges = []
     for e in edges:
         min_weight = edge_weight_thresholds.get(e["type"], 0.0)
@@ -33,7 +29,6 @@ def create_graph_visualization(
             e["target"] in filtered_node_ids):
             filtered_edges.append(e)
     
-    # Создание сети PyVis
     net = Network(
         height="500px", 
         width="100%", 
@@ -41,7 +36,6 @@ def create_graph_visualization(
         font_color="white"
     )
     
-    # Добавление узлов
     for node in filtered_nodes:
         net.add_node(
             node["id"], 
@@ -51,7 +45,6 @@ def create_graph_visualization(
             size=25
         )
     
-    # Добавление связей
     for edge in filtered_edges:
         net.add_edge(
             edge["source"], 
@@ -62,7 +55,6 @@ def create_graph_visualization(
             dashes=edge["type"] in DASHED_EDGE_TYPES
         )
     
-    # Настройка физики графа
     net.set_options("""
     {
         "physics": {
