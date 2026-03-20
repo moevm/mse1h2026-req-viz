@@ -89,7 +89,7 @@ async def get_graph(
     
     # Parse
     try:
-        graph = parser.parse_graph(technology, rel_types)
+        graph = parser.parse_graph(technology, rel_types_list)
     except Exception as e:
         logger.error(f"Parser error for '{technology}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Parser error: {str(e)}")

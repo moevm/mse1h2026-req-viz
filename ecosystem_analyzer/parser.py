@@ -9,7 +9,7 @@ class ParserWrapper:
     def parse_graph(
             self,
             technology: str,
-            relationships: Optional[List[str]] = None
+            relationships: List[str]
     ) -> Optional[GraphResponse]:
         """ Получить граф для заданной технологии и списка отношений. """
         raw_graph: Dict[str, Any]
