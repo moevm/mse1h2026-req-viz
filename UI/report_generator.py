@@ -10,18 +10,7 @@ from reportlab.lib.units import inch
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import os
-
-NODE_TYPE_TRANSLATIONS = {
-    "Technology": "Технология",
-    "Company": "Компания",
-}
-
-EDGE_TYPE_TRANSLATIONS = {
-    "USED_WITH": "Используется вместе",
-    "ALTERNATIVE_TO": "Альтернатива",
-    "DEPENDS_ON": "Зависит от",
-    "DEVELOPED_BY": "Разработано компанией",
-}
+from config import NODE_TYPE_TRANSLATIONS, EDGE_TYPE_TRANSLATIONS
 
 
 def _setup_fonts():

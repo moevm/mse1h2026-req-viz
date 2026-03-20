@@ -2,17 +2,14 @@
 import os
 from typing import Dict, List, Tuple
 
-# Backend configuration
 BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:8000")
 BACKEND_TIMEOUT = 10  # seconds
 
-# Цвета узлов по типу
 NODE_COLORS: Dict[str, str] = {
     "Technology": "#4CAF50",  
     "Company": "#2196F3",     
 }
 
-# Цвета связей по типу
 EDGE_COLORS: Dict[str, str] = {
     "USED_WITH": "#4CAF50",      
     "ALTERNATIVE_TO": "#F44336", 
@@ -20,7 +17,6 @@ EDGE_COLORS: Dict[str, str] = {
     "DEVELOPED_BY": "#2196F3",   
 }
 
-# Типы связей для фильтров
 EDGE_TYPES: List[str] = [
     "USED_WITH",
     "ALTERNATIVE_TO", 
@@ -28,7 +24,6 @@ EDGE_TYPES: List[str] = [
     "DEVELOPED_BY"
 ]
 
-# Человеко-читаемые названия связей
 EDGE_TYPE_NAMES: Dict[str, str] = {
     "USED_WITH": "Используется с",
     "ALTERNATIVE_TO": "Альтернатива для",
@@ -36,11 +31,22 @@ EDGE_TYPE_NAMES: Dict[str, str] = {
     "DEVELOPED_BY": "Разработано компанией"
 }
 
-# Типы узлов для чекбоксов фильтрации
 NODE_TYPE_FILTERS: List[Tuple[str, str]] = [
     ("Technology", "🟢 Технологии"),
     ("Company", "🔵 Компании"),
 ]
 
-# Связи, которые отображаются пунктиром
 DASHED_EDGE_TYPES: List[str] = ["ALTERNATIVE_TO", "LICENSED_UNDER"]
+
+
+NODE_TYPE_TRANSLATIONS: Dict[str, str] = {
+    "Technology": "Технология",
+    "Company": "Компания",
+}
+
+EDGE_TYPE_TRANSLATIONS: Dict[str, str] = {
+    "USED_WITH": "Используется вместе",
+    "ALTERNATIVE_TO": "Альтернатива",
+    "DEPENDS_ON": "Зависит от",
+    "DEVELOPED_BY": "Разработано компанией",
+}
