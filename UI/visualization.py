@@ -15,18 +15,26 @@ def create_graph_visualization(
     nodes: list, 
     edges: list, 
     node_filters: list, 
-    edge_weight_thresholds: dict
+    edge_weight_thresholds: dict,
+    binary_edge_filters: dict = None
 ) -> str:
+    """Создаёт HTML-визуализацию графа с фильтрацией узлов и связей."""
+    if binary_edge_filters is None:
+        binary_edge_filters = {}
 
     filtered_nodes = [n for n in nodes if n["type"] in node_filters]
     filtered_node_ids = {n["id"] for n in filtered_nodes}
     
     filtered_edges = []
     for e in edges:
+        if e["type"] in binary_edge_filters and not binary_edge_filters[e["type"]]:
+            continue
+        
+        if e["source"] not in filtered_node_ids or e["target"] not in filtered_node_ids:
+            continue
+        
         min_weight = edge_weight_thresholds.get(e["type"], 0.0)
-        if (e["weight"] <= min_weight and 
-            e["source"] in filtered_node_ids and 
-            e["target"] in filtered_node_ids):
+        if e["weight"] >= min_weight:
             filtered_edges.append(e)
     
     net = Network(
