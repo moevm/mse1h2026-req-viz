@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 import pandas as pd
 from config import NODE_TYPE_FILTERS, EDGE_TYPES, EDGE_TYPE_NAMES
@@ -8,6 +7,7 @@ from report_generator import ReportGenerator
 
 
 def main():
+    """Главная функция Streamlit приложения для визуализации графов технологий."""
     st.set_page_config(
         page_title="Tech Graph Analyzer",
         layout="wide"
@@ -20,7 +20,6 @@ def main():
     if 'search_query' not in st.session_state:
         st.session_state.search_query = ""
     
-    # поиск
     st.subheader("Поиск технологии")
 
     search_col1, search_col2 = st.columns([5, 1.5], gap="small")
@@ -43,7 +42,6 @@ def main():
                 key="search_btn"
             )
     
-    # Обработка поиска
     if search_button or (search_query and st.session_state.search_query != search_query):
         st.session_state.search_query = search_query
         
@@ -77,7 +75,6 @@ def main():
         st.divider()
         col_filters, col_graph = st.columns([1, 3])
         
-        # Панель фильтрации 
         with col_filters:
             st.subheader("Фильтры")
             
@@ -105,7 +102,6 @@ def main():
                 if st.checkbox(label, value=True, key=f"node_{node_type}"):
                     node_filters.append(node_type)
         
-        # Визуализация графа
         with col_graph:
             st.subheader("Визуализация графа")
             

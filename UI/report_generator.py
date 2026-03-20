@@ -1,4 +1,3 @@
-# report_generator.py
 from typing import Dict, List, Any
 from datetime import datetime
 from io import BytesIO
@@ -14,9 +13,11 @@ from config import NODE_TYPE_TRANSLATIONS, EDGE_TYPE_TRANSLATIONS
 
 
 class ReportGenerator:
+    """Генератор PDF-отчетов на основе данных графа с поддержкой русской локализации."""
     
     @staticmethod
     def _setup_fonts():
+        """Инициализирует поддержку шрифтов Cyrillic для PDF."""
         try:
             font_paths = [
                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -43,6 +44,7 @@ class ReportGenerator:
         self._setup_custom_styles()
     
     def _setup_custom_styles(self):
+        """Создаёт пользовательские стили для заголовков и текста в PDF."""
         self.styles.add(ParagraphStyle(
             name='Title_Custom',
             parent=self.styles['Heading1'],
@@ -72,7 +74,7 @@ class ReportGenerator:
         selected_edge_types: List[str] | None = None,
         technology_name: str = "Unknown"
     ) -> BytesIO:
-
+        """Генерирует PDF-отчет с таблицами узлов, связей и статистики."""
         filtered_nodes = self._filter_nodes(nodes, selected_nodes)
         filtered_edges = self._filter_edges(edges, selected_edge_types, filtered_nodes)
         
@@ -125,6 +127,7 @@ class ReportGenerator:
         nodes: List[Dict[str, Any]],
         selected_node_ids: List[str] | None
     ) -> List[Dict[str, Any]]:
+        """Фильтрует узлы по выбранным ID."""
         if selected_node_ids is None:
             return nodes
         selected_set = set(selected_node_ids)
@@ -136,6 +139,7 @@ class ReportGenerator:
         selected_types: List[str] | None,
         filtered_nodes: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
+        """Фильтрует связи по типам и наличию узлов в графе."""
         node_ids = {n.get('id') for n in filtered_nodes}
         result = []
         
@@ -152,6 +156,7 @@ class ReportGenerator:
         return result
     
     def _create_nodes_table(self, nodes: List[Dict[str, Any]]) -> Table:
+        """Создаёт таблицу узлов с названиями и типами."""
         data = [["Название", "Тип"]]
         
         for node in nodes:
@@ -180,6 +185,7 @@ class ReportGenerator:
         edges: List[Dict[str, Any]],
         nodes: List[Dict[str, Any]]
     ) -> Table:
+        """Создаёт таблицу связей с источником, целью, типом и весом."""
         node_map = {n.get('id'): n for n in nodes}
         
         data = [["Источник", "Цель", "Тип связи", "Вес"]]
@@ -216,6 +222,7 @@ class ReportGenerator:
         nodes: List[Dict[str, Any]],
         edges: List[Dict[str, Any]]
     ) -> Table:
+        """Создаёт таблицу статистики с количеством и типами узлов и связей."""
         node_types = {}
         for node in nodes:
             node_type = node.get('type', 'Unknown')

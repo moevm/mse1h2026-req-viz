@@ -3,7 +3,7 @@ import os
 from typing import Dict, List, Tuple
 
 BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:8000")
-BACKEND_TIMEOUT = 10  # seconds
+BACKEND_TIMEOUT = 10 
 
 NODE_COLORS: Dict[str, str] = {
     "Technology": "#4CAF50",  
