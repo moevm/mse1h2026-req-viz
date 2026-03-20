@@ -9,7 +9,7 @@ from reportlab.lib.units import inch
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import os
-from config import NODE_TYPE_TRANSLATIONS, EDGE_TYPE_TRANSLATIONS
+from config import NODE_TYPE_TRANSLATIONS, EDGE_TYPE_TRANSLATIONS, BINARY_EDGE_TYPES
 
 
 class ReportGenerator:
@@ -93,7 +93,6 @@ class ReportGenerator:
         title = Paragraph(f"Анализ: {technology_name}", self.styles['Title_Custom'])
         story.append(title)
         
-        # дата создания
         timestamp = Paragraph(
             f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}",
             self.styles['Normal']
@@ -101,19 +100,16 @@ class ReportGenerator:
         story.append(timestamp)
         story.append(Spacer(1, 0.3 * inch))
         
-        # таблица узлов
         story.append(Paragraph("Узлы", self.styles['Heading_Custom']))
         nodes_table = self._create_nodes_table(filtered_nodes)
         story.append(nodes_table)
         story.append(Spacer(1, 0.2 * inch))
         
-        # таблица связей
         story.append(Paragraph("Связи", self.styles['Heading_Custom']))
         edges_table = self._create_edges_table(filtered_edges, filtered_nodes)
         story.append(edges_table)
         story.append(Spacer(1, 0.2 * inch))
         
-        # статистика
         story.append(Paragraph("Статистика", self.styles['Heading_Custom']))
         stats_table = self._create_stats_table(filtered_nodes, filtered_edges)
         story.append(stats_table)
@@ -185,10 +181,10 @@ class ReportGenerator:
         edges: List[Dict[str, Any]],
         nodes: List[Dict[str, Any]]
     ) -> Table:
-        """Создаёт таблицу связей с источником, целью, типом и весом."""
+        """Создаёт таблицу связей с источником, целью, типом и весом/статусом."""
         node_map = {n.get('id'): n for n in nodes}
         
-        data = [["Источник", "Цель", "Тип связи", "Вес"]]
+        data = [["Источник", "Цель", "Тип связи", "Статус"]]
         
         for edge in edges:
             source_node = node_map.get(edge.get('source'), {})
@@ -196,11 +192,16 @@ class ReportGenerator:
             edge_type = edge.get('type', 'N/A')
             translated_edge_type = EDGE_TYPE_TRANSLATIONS.get(edge_type, edge_type)
             
+            if edge_type in BINARY_EDGE_TYPES:
+                status = "Да"
+            else:
+                status = f"{edge.get('weight', 0):.2f}"
+            
             data.append([
                 source_node.get('label', edge.get('source', 'N/A'))[:25],
                 target_node.get('label', edge.get('target', 'N/A'))[:25],
                 translated_edge_type,
-                f"{edge.get('weight', 0):.2f}"
+                status
             ])
         
         table = Table(data, colWidths=[1.8*inch, 1.5*inch, 2.2*inch, 0.8*inch])
