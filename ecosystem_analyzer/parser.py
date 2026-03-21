@@ -9,7 +9,7 @@ class ParserWrapper:
     def parse_graph(
             self,
             technology: str,
-            relationships: Optional[List[str]] = None
+            relationships: List[str]
     ) -> Optional[GraphResponse]:
         """ Получить граф для заданной технологии и списка отношений. """
         raw_graph: Dict[str, Any]
@@ -31,6 +31,7 @@ class ParserWrapper:
             Node(
                 id=node["id"],
                 label=node["name"],
+                type=node["type"].replace("_", " ").title().replace(" ", ""),
             )
             for node in raw_graph.get("nodes", [])
         ]
@@ -39,7 +40,7 @@ class ParserWrapper:
             Edge(
                 source=edge["source"],
                 target=edge["target"],
-                type=edge["predicate"],
+                type=edge["predicate"].upper().replace(" ", "_"),
                 weight=1.0  # Парсер не возвращает веса, ставим дефолт
             )
             for edge in raw_graph.get("edges", [])

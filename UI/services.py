@@ -14,7 +14,6 @@ class BackendError(Exception):
 class NotFoundError(BackendError):
     pass
 
-
 class BackendClient:
     
     def __init__(self, base_url: str | None = None, timeout: int = BACKEND_TIMEOUT, max_retries: int = 2):
@@ -38,7 +37,7 @@ class BackendClient:
         
         url = f"{self.base_url}/api/graph"
         try:
-            resp = self.session.get(url, params={"source": source}, timeout=self.timeout)
+            resp = self.session.get(url, params={"technology": source}, timeout=self.timeout)
         except Timeout as e:
             raise BackendError("request timed out (server took too long to respond)") from e
         except RequestException as e:
@@ -65,6 +64,6 @@ class BackendClient:
 
     def get_available_connection_types(self) -> List[str]:
         return EDGE_TYPES
- 
+    
     def get_connection_type_display_name(self, type_code: str) -> str:
         return EDGE_TYPE_NAMES.get(type_code, type_code)
