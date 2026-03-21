@@ -11,10 +11,16 @@ from ecosystem_analyzer.parser import ParserWrapper
 
 MAX_DEPTH = 10 # Max depth of graph response TODO: remove or replace to env file
 MAX_NODES = 100 # Max nodes to return
-ALLOWED_REL_TYPES = {
-    "USED_WITH", "ALTERNATIVE_FOR", "DEPENDS_ON",
-    "DEVELOPED_BY", "USES_LICENSE"
+ALLOWED_REL_TYPES = { #TODO: replace to env file, for parser/parser also
+    "uses", "used by"
 }
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -81,13 +87,15 @@ async def get_graph(
         technology,
         depth=depth,
         limit=limit,
-        rel_types=rel_types_list
+        rel_types=[x.upper().replace(" ", "_") for x in rel_types_list]
     )
 
     if graph:
+        logger.info(f"Found '{technology}' in database ({len(graph.nodes)} nodes)")
         return graph
-    
+
     # Parse
+    logger.info(f"'{technology}' not found in database, calling parser...")
     try:
         graph = parser.parse_graph(technology, rel_types_list)
     except Exception as e:
@@ -99,8 +107,10 @@ async def get_graph(
         raise HTTPException(status_code=404, detail="Could not parse source")
     
     # Save in DB
+    logger.info(f"Saving graph for '{technology}' to database...")
     try:
         db.save_graph(graph, source=technology)
+        logger.info(f"Graph saved ({len(graph.nodes)} nodes, {len(graph.edges)} edges)")
     except Exception as e:
         logger.error(f"Failed to save graph for '{technology}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
