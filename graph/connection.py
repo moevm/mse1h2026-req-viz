@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import time
 from collections.abc import Callable
@@ -121,7 +122,8 @@ class Neo4jConnection:
 
     def close(self) -> None:
         if self._driver is not None:
-            self._driver.close()
+            with contextlib.suppress(Exception):
+                self._driver.close()
             self._driver = None
             logger.info("Neo4j connection closed.")
 
