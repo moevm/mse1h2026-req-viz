@@ -59,3 +59,9 @@ known-first-party = ["graph"]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
+
+[tool.coverage.run]
+omit = [
+    "tests/*",
+    "*/tests/*",
+]
