@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock
 from datetime import datetime
 
 from graph.service import GraphService
@@ -7,14 +7,11 @@ from graph.connection import Neo4jConnection
 from graph.repository import GraphRepository
 from graph.models import (
     NodeCreate, NodeFilter, NodeResponse, NodeUpdate,
-    RelationshipCreate, RelationshipFilter, RelationshipResponse, RelationshipUpdate,
-    SubgraphFilter, SubgraphResponse,
+    RelationshipCreate, RelationshipFilter, RelationshipResponse, RelationshipUpdate
 )
 from graph.exceptions import (
     DuplicateNodeError,
-    NodeNotFoundError,
-    RelationshipNotFoundError,
-    GraphConnectionError,
+    NodeNotFoundError
 )
 
 

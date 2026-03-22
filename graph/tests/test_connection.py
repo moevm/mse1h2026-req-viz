@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from neo4j import GraphDatabase, Driver, Session, ManagedTransaction, Result
 from neo4j.exceptions import (
     AuthError,
