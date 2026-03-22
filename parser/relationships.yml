@@ -23,5 +23,52 @@ relationship_types:
         - ...
     weight_default: 0.7
     description: "Зависит от"
-
+  - predicate: "based on"
+    category: "TECHNICAL"
+    subcategory: "integration"
+    wikidata_property: "P144"  # based on
+    stackoverflow:
+        - ...
+    weight_default: 0.7
+    description: "Создано на основе"
+  - predicate: "inspired by"
+    category: "TECHNICAL"
+    subcategory: "integration"
+    wikidata_property: "P941"  # inspired by
+    stackoverflow:
+        - ...
+    weight_default: 0.7
+    description: "Вдохновлено"
+  - predicate: "creator"
+    category: "TECHNICAL"
+    subcategory: "integration"
+    wikidata_property: "P170"  # creator
+    stackoverflow:
+        - ...
+    weight_default: 0.7
+    description: "Создатель"
+  - predicate: "developer"
+    category: "TECHNICAL"
+    subcategory: "integration"
+    wikidata_property: "P178"  # developer
+    stackoverflow:
+        - ...
+    weight_default: 0.7
+    description: "Разработчик"
+  - predicate: "programmed in"
+    category: "TECHNICAL"
+    subcategory: "integration"
+    wikidata_property: "P277"  # programmed in
+    stackoverflow:
+        - ...
+    weight_default: 0.7
+    description: "Язык программирования"
+  - predicate: "owned by"
+    category: "TECHNICAL"
+    subcategory: "integration"
+    wikidata_property: "P127"  # owned by
+    stackoverflow:
+        - ...
+    weight_default: 0.7
+    description: "Владелец"
 
