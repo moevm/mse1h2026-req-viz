@@ -1,11 +1,16 @@
-import pytest
 from datetime import datetime
+
+import pytest
 from pydantic import ValidationError
 
 from graph.models import (
-    NodeCreate, NodeUpdate,
-    RelationshipCreate, RelationshipUpdate,
-    NodeFilter, RelationshipFilter, SubgraphFilter
+    NodeCreate,
+    NodeFilter,
+    NodeUpdate,
+    RelationshipCreate,
+    RelationshipFilter,
+    RelationshipUpdate,
+    SubgraphFilter,
 )
 
 
@@ -16,7 +21,7 @@ class TestNodeCreate:
             "name": "Python",
             "description": "Programming language",
             "properties": {"version": "3.12", "type": "interpreted"},
-            "source": "wikidata"
+            "source": "wikidata",
         }
         node = NodeCreate(**node_data)
         assert node.label == "Technology"
@@ -82,7 +87,7 @@ class TestNodeUpdate:
             "name": "Updated Name",
             "description": "Updated description",
             "properties": {"new_prop": "value"},
-            "source": "updated_source"
+            "source": "updated_source",
         }
         update = NodeUpdate(**update_data)
         assert update.name == "Updated Name"
@@ -108,7 +113,7 @@ class TestNodeUpdate:
             "name": None,
             "description": None,
             "properties": None,
-            "source": None
+            "source": None,
         }
         update = NodeUpdate(**update_data)
         assert update.name is None
@@ -125,7 +130,7 @@ class TestRelationshipCreate:
             "rel_type": "USED_WITH",
             "weight": 0.8,
             "properties": {"confidence": 0.9},
-            "source": "wikidata"
+            "source": "wikidata",
         }
         rel = RelationshipCreate(**rel_data)
         assert rel.source_uid == "source123"
@@ -141,7 +146,7 @@ class TestRelationshipCreate:
             rel_data = {
                 "source_uid": "source123",
                 "target_uid": "target456",
-                "rel_type": rel_type
+                "rel_type": rel_type,
             }
             rel = RelationshipCreate(**rel_data)
             assert rel.rel_type == rel_type
@@ -151,7 +156,7 @@ class TestRelationshipCreate:
             rel_data = {
                 "source_uid": "source123",
                 "target_uid": "target456",
-                "rel_type": rel_type
+                "rel_type": rel_type,
             }
             with pytest.raises(ValidationError) as exc_info:
                 RelationshipCreate(**rel_data)
@@ -162,7 +167,7 @@ class TestRelationshipCreate:
             rel_data = {
                 "source_uid": "source123",
                 "target_uid": "target456",
-                "rel_type": rel_type
+                "rel_type": rel_type,
             }
             with pytest.raises(ValidationError) as exc_info:
                 RelationshipCreate(**rel_data)
@@ -171,7 +176,7 @@ class TestRelationshipCreate:
         rel_data = {
             "source_uid": "",
             "target_uid": "target456",
-            "rel_type": "RELATED_TO"
+            "rel_type": "RELATED_TO",
         }
         with pytest.raises(ValidationError):
             RelationshipCreate(**rel_data)
@@ -179,7 +184,7 @@ class TestRelationshipCreate:
         rel_data = {
             "source_uid": None,
             "target_uid": "target456",
-            "rel_type": "RELATED_TO"
+            "rel_type": "RELATED_TO",
         }
         with pytest.raises(ValidationError):
             RelationshipCreate(**rel_data)
@@ -187,7 +192,7 @@ class TestRelationshipCreate:
         rel_data = {
             "source_uid": "source123",
             "target_uid": "",
-            "rel_type": "RELATED_TO"
+            "rel_type": "RELATED_TO",
         }
         with pytest.raises(ValidationError):
             RelationshipCreate(**rel_data)
@@ -195,7 +200,7 @@ class TestRelationshipCreate:
         rel_data = {
             "source_uid": "source123",
             "target_uid": None,
-            "rel_type": "RELATED_TO"
+            "rel_type": "RELATED_TO",
         }
         with pytest.raises(ValidationError):
             RelationshipCreate(**rel_data)
@@ -203,7 +208,7 @@ class TestRelationshipCreate:
         rel_data = {
             "source_uid": "source123",
             "target_uid": "target456",
-            "rel_type": ""
+            "rel_type": "",
         }
         with pytest.raises(ValidationError):
             RelationshipCreate(**rel_data)
@@ -211,7 +216,7 @@ class TestRelationshipCreate:
         rel_data = {
             "source_uid": "source123",
             "target_uid": "target456",
-            "rel_type": None
+            "rel_type": None,
         }
         with pytest.raises(ValidationError):
             RelationshipCreate(**rel_data)
@@ -220,7 +225,7 @@ class TestRelationshipCreate:
         rel_data = {
             "source_uid": "source123",
             "target_uid": "target456",
-            "rel_type": long_type
+            "rel_type": long_type,
         }
         with pytest.raises(ValidationError):
             RelationshipCreate(**rel_data)
@@ -229,7 +234,7 @@ class TestRelationshipCreate:
             "source_uid": "source123",
             "target_uid": "target456",
             "rel_type": "RELATED_TO",
-            "weight": -0.5
+            "weight": -0.5,
         }
         with pytest.raises(ValidationError):
             RelationshipCreate(**rel_data)
@@ -238,7 +243,7 @@ class TestRelationshipCreate:
             "source_uid": "source123",
             "target_uid": "target456",
             "rel_type": "RELATED_TO",
-            "weight": 0.0
+            "weight": 0.0,
         }
         rel = RelationshipCreate(**rel_data)
         assert rel.weight == 0.0
@@ -248,7 +253,7 @@ class TestRelationshipCreate:
             "source_uid": "source123",
             "target_uid": "target456",
             "rel_type": "RELATED_TO",
-            "source": long_source
+            "source": long_source,
         }
         with pytest.raises(ValidationError):
             RelationshipCreate(**rel_data)
@@ -259,7 +264,7 @@ class TestRelationshipUpdate:
         update_data = {
             "weight": 0.9,
             "properties": {"updated": "value"},
-            "source": "updated_source"
+            "source": "updated_source",
         }
         update = RelationshipUpdate(**update_data)
         assert update.weight == 0.9
@@ -284,11 +289,7 @@ class TestRelationshipUpdate:
         assert update.weight == 0.0
 
     def test_relationship_update_none_fields(self):
-        update_data = {
-            "weight": None,
-            "properties": None,
-            "source": None
-        }
+        update_data = {"weight": None, "properties": None, "source": None}
         update = RelationshipUpdate(**update_data)
         assert update.weight is None
         assert update.properties is None
@@ -306,7 +307,7 @@ class TestNodeFilter:
             "created_after": now,
             "created_before": now,
             "limit": 50,
-            "offset": 10
+            "offset": 10,
         }
         node_filter = NodeFilter(**filter_data)
         assert node_filter.labels == ["Technology", "Language"]
@@ -355,7 +356,7 @@ class TestRelationshipFilter:
             "weight_max": 0.9,
             "source": "wikidata",
             "limit": 50,
-            "offset": 10
+            "offset": 10,
         }
         rel_filter = RelationshipFilter(**filter_data)
         assert rel_filter.rel_types == ["USED_WITH", "RELATED_TO"]
@@ -406,7 +407,7 @@ class TestSubgraphFilter:
             "rel_filter": rel_filter,
             "center_uid": "center123",
             "depth": 3,
-            "limit": 50
+            "limit": 50,
         }
         subgraph_filter = SubgraphFilter(**filter_data)
         assert subgraph_filter.node_filter == node_filter

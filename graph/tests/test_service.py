@@ -1,18 +1,26 @@
-import pytest
-from unittest.mock import Mock
 from datetime import datetime
+from unittest.mock import Mock
 
-from graph.service import GraphService
+import pytest
+
 from graph.connection import Neo4jConnection
-from graph.repository import GraphRepository
-from graph.models import (
-    NodeCreate, NodeFilter, NodeResponse, NodeUpdate,
-    RelationshipCreate, RelationshipFilter, RelationshipResponse, RelationshipUpdate
-)
 from graph.exceptions import (
     DuplicateNodeError,
-    NodeNotFoundError
+    NodeNotFoundError,
+    RelationshipNotFoundError,
 )
+from graph.models import (
+    NodeCreate,
+    NodeFilter,
+    NodeResponse,
+    NodeUpdate,
+    RelationshipCreate,
+    RelationshipFilter,
+    RelationshipResponse,
+    RelationshipUpdate,
+)
+from graph.repository import GraphRepository
+from graph.service import GraphService
 
 
 class TestGraphServiceInit:
@@ -49,17 +57,14 @@ class TestGraphServiceCreateNode:
             label="TestLabel",
             name="Test Node",
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
         mock_repo.create_node = Mock(return_value=expected_node)
 
         service = GraphService(mock_connection)
         service._repo = mock_repo
 
-        node_create = NodeCreate(
-            label="TestLabel",
-            name="Test Node"
-        )
+        node_create = NodeCreate(label="TestLabel", name="Test Node")
 
         result = service.create_node(node_create)
 
@@ -75,17 +80,16 @@ class TestGraphServiceCreateNode:
         service = GraphService(mock_connection)
         service._repo = mock_repo
 
-        node_create = NodeCreate(
-            label="TestLabel",
-            name="Test Node"
-        )
+        node_create = NodeCreate(label="TestLabel", name="Test Node")
 
         with pytest.raises(DuplicateNodeError) as exc_info:
             service.create_node(node_create)
 
         mock_repo.node_exists.assert_called_once_with("TestLabel", "Test Node")
         mock_repo.create_node.assert_not_called()
-        assert "Node with label 'TestLabel' and name 'Test Node' already exists" in str(exc_info.value)
+        assert "Node with label 'TestLabel' and name 'Test Node' already exists" in str(
+            exc_info.value
+        )
 
 
 class TestGraphServiceGetNode:
@@ -98,7 +102,7 @@ class TestGraphServiceGetNode:
             label="TestLabel",
             name="Test Node",
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
         mock_repo.get_node = Mock(return_value=expected_node)
 
@@ -136,15 +140,15 @@ class TestGraphServiceFindNodes:
                 label="TestLabel",
                 name="Test Node 1",
                 created_at=datetime.now(),
-                updated_at=datetime.now()
+                updated_at=datetime.now(),
             ),
             NodeResponse(
                 uid="test-uid-2",
                 label="TestLabel",
                 name="Test Node 2",
                 created_at=datetime.now(),
-                updated_at=datetime.now()
-            )
+                updated_at=datetime.now(),
+            ),
         ]
         mock_repo.find_nodes = Mock(return_value=expected_nodes)
 
@@ -168,7 +172,7 @@ class TestGraphServiceFindNodes:
                 label="TestLabel",
                 name="Test Node 1",
                 created_at=datetime.now(),
-                updated_at=datetime.now()
+                updated_at=datetime.now(),
             )
         ]
         mock_repo.find_nodes = Mock(return_value=expected_nodes)
@@ -194,7 +198,7 @@ class TestGraphServiceUpdateNode:
             label="TestLabel",
             name="Updated Test Node",
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
         mock_repo.update_node = Mock(return_value=expected_node)
 
@@ -264,14 +268,14 @@ class TestGraphServiceCreateRelationship:
             label="SourceLabel",
             name="Source Node",
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
         target_node = NodeResponse(
             uid="target-uid",
             label="TargetLabel",
             name="Target Node",
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
         mock_repo.get_node.side_effect = [source_node, target_node]
 
@@ -281,7 +285,7 @@ class TestGraphServiceCreateRelationship:
             rel_type="TEST_RELATIONSHIP",
             weight=1.0,
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
         mock_repo.create_relationship = Mock(return_value=expected_rel)
 
@@ -291,7 +295,7 @@ class TestGraphServiceCreateRelationship:
         rel_create = RelationshipCreate(
             source_uid="source-uid",
             target_uid="target-uid",
-            rel_type="TEST_RELATIONSHIP"
+            rel_type="TEST_RELATIONSHIP",
         )
 
         result = service.create_relationship(rel_create)
@@ -313,7 +317,7 @@ class TestGraphServiceCreateRelationship:
         rel_create = RelationshipCreate(
             source_uid="non-existent-source-uid",
             target_uid="target-uid",
-            rel_type="TEST_RELATIONSHIP"
+            rel_type="TEST_RELATIONSHIP",
         )
 
         with pytest.raises(NodeNotFoundError) as exc_info:
@@ -321,7 +325,9 @@ class TestGraphServiceCreateRelationship:
 
         mock_repo.get_node.assert_called_once_with("non-existent-source-uid")
         mock_repo.create_relationship.assert_not_called()
-        assert "Source node with uid 'non-existent-source-uid' not found" in str(exc_info.value)
+        assert "Source node with uid 'non-existent-source-uid' not found" in str(
+            exc_info.value
+        )
 
     def test_create_relationship_target_not_found(self):
         mock_connection = Mock(spec=Neo4jConnection)
@@ -332,7 +338,7 @@ class TestGraphServiceCreateRelationship:
             label="SourceLabel",
             name="Source Node",
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
         mock_repo.get_node.side_effect = [source_node, None]
 
@@ -342,7 +348,7 @@ class TestGraphServiceCreateRelationship:
         rel_create = RelationshipCreate(
             source_uid="source-uid",
             target_uid="non-existent-target-uid",
-            rel_type="TEST_RELATIONSHIP"
+            rel_type="TEST_RELATIONSHIP",
         )
 
         with pytest.raises(NodeNotFoundError) as exc_info:
@@ -352,7 +358,9 @@ class TestGraphServiceCreateRelationship:
         mock_repo.get_node.assert_any_call("source-uid")
         mock_repo.get_node.assert_any_call("non-existent-target-uid")
         mock_repo.create_relationship.assert_not_called()
-        assert "Target node with uid 'non-existent-target-uid' not found" in str(exc_info.value)
+        assert "Target node with uid 'non-existent-target-uid' not found" in str(
+            exc_info.value
+        )
 
     def test_create_relationship_creation_failed(self):
         mock_connection = Mock(spec=Neo4jConnection)
@@ -363,14 +371,14 @@ class TestGraphServiceCreateRelationship:
             label="SourceLabel",
             name="Source Node",
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
         target_node = NodeResponse(
             uid="target-uid",
             label="TargetLabel",
             name="Target Node",
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
         mock_repo.get_node.side_effect = [source_node, target_node]
 
@@ -382,7 +390,7 @@ class TestGraphServiceCreateRelationship:
         rel_create = RelationshipCreate(
             source_uid="source-uid",
             target_uid="target-uid",
-            rel_type="TEST_RELATIONSHIP"
+            rel_type="TEST_RELATIONSHIP",
         )
 
         with pytest.raises(NodeNotFoundError) as exc_info:
@@ -392,7 +400,10 @@ class TestGraphServiceCreateRelationship:
         mock_repo.get_node.assert_any_call("source-uid")
         mock_repo.get_node.assert_any_call("target-uid")
         mock_repo.create_relationship.assert_called_once_with(rel_create)
-        assert "Failed to create relationship TEST_RELATIONSHIP between 'source-uid' and 'target-uid'" in str(exc_info.value)
+        assert (
+            "Failed to create relationship TEST_RELATIONSHIP between "
+            "'source-uid' and 'target-uid'" in str(exc_info.value)
+        )
 
 
 class TestGraphServiceGetRelationships:
@@ -405,7 +416,7 @@ class TestGraphServiceGetRelationships:
             label="TestLabel",
             name="Test Node",
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
         mock_repo.get_node = Mock(return_value=node)
 
@@ -416,7 +427,7 @@ class TestGraphServiceGetRelationships:
                 rel_type="TEST_RELATIONSHIP_1",
                 weight=1.0,
                 created_at=datetime.now(),
-                updated_at=datetime.now()
+                updated_at=datetime.now(),
             ),
             RelationshipResponse(
                 source_uid="test-uid",
@@ -424,8 +435,8 @@ class TestGraphServiceGetRelationships:
                 rel_type="TEST_RELATIONSHIP_2",
                 weight=0.5,
                 created_at=datetime.now(),
-                updated_at=datetime.now()
-            )
+                updated_at=datetime.now(),
+            ),
         ]
         mock_repo.get_relationships = Mock(return_value=expected_rels)
 
@@ -447,7 +458,7 @@ class TestGraphServiceGetRelationships:
             label="TestLabel",
             name="Test Node",
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
         mock_repo.get_node = Mock(return_value=node)
 
@@ -458,7 +469,7 @@ class TestGraphServiceGetRelationships:
                 rel_type="TEST_RELATIONSHIP_1",
                 weight=1.0,
                 created_at=datetime.now(),
-                updated_at=datetime.now()
+                updated_at=datetime.now(),
             )
         ]
         mock_repo.get_relationships = Mock(return_value=expected_rels)
@@ -501,7 +512,7 @@ class TestGraphServiceUpdateRelationship:
             rel_type="TEST_RELATIONSHIP",
             weight=2.0,
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
         mock_repo.update_relationship = Mock(return_value=expected_rel)
 
@@ -510,9 +521,13 @@ class TestGraphServiceUpdateRelationship:
 
         rel_update = RelationshipUpdate(weight=2.0)
 
-        result = service.update_relationship("source-uid", "target-uid", "TEST_RELATIONSHIP", rel_update)
+        result = service.update_relationship(
+            "source-uid", "target-uid", "TEST_RELATIONSHIP", rel_update
+        )
 
-        mock_repo.update_relationship.assert_called_once_with("source-uid", "target-uid", "TEST_RELATIONSHIP", rel_update)
+        mock_repo.update_relationship.assert_called_once_with(
+            "source-uid", "target-uid", "TEST_RELATIONSHIP", rel_update
+        )
         assert result == expected_rel
 
     def test_update_relationship_not_found(self):
@@ -526,10 +541,17 @@ class TestGraphServiceUpdateRelationship:
         rel_update = RelationshipUpdate(weight=2.0)
 
         with pytest.raises(RelationshipNotFoundError) as exc_info:
-            service.update_relationship("source-uid", "target-uid", "NON_EXISTENT_RELATIONSHIP", rel_update)
+            service.update_relationship(
+                "source-uid", "target-uid", "NON_EXISTENT_RELATIONSHIP", rel_update
+            )
 
-        mock_repo.update_relationship.assert_called_once_with("source-uid", "target-uid", "NON_EXISTENT_RELATIONSHIP", rel_update)
-        assert "Relationship NON_EXISTENT_RELATIONSHIP from 'source-uid' to 'target-uid' not found" in str(exc_info.value)
+        mock_repo.update_relationship.assert_called_once_with(
+            "source-uid", "target-uid", "NON_EXISTENT_RELATIONSHIP", rel_update
+        )
+        assert (
+            "Relationship NON_EXISTENT_RELATIONSHIP from 'source-uid' to 'target-uid' "
+            "not found" in str(exc_info.value)
+        )
 
 
 class TestGraphServiceDeleteRelationship:
@@ -541,9 +563,13 @@ class TestGraphServiceDeleteRelationship:
         service = GraphService(mock_connection)
         service._repo = mock_repo
 
-        result = service.delete_relationship("source-uid", "target-uid", "TEST_RELATIONSHIP")
+        result = service.delete_relationship(
+            "source-uid", "target-uid", "TEST_RELATIONSHIP"
+        )
 
-        mock_repo.delete_relationship.assert_called_once_with("source-uid", "target-uid", "TEST_RELATIONSHIP")
+        mock_repo.delete_relationship.assert_called_once_with(
+            "source-uid", "target-uid", "TEST_RELATIONSHIP"
+        )
         assert result is True
 
     def test_delete_relationship_not_found(self):
@@ -555,10 +581,18 @@ class TestGraphServiceDeleteRelationship:
         service._repo = mock_repo
 
         with pytest.raises(RelationshipNotFoundError) as exc_info:
-            service.delete_relationship("source-uid", "target-uid", "NON_EXISTENT_RELATIONSHIP")
+            service.delete_relationship(
+                "source-uid", "target-uid", "NON_EXISTENT_RELATIONSHIP"
+            )
 
-        mock_repo.delete_relationship.assert_called_once_with("source-uid", "target-uid", "NON_EXISTENT_RELATIONSHIP")
-        assert "Relationship NON_EXISTENT_RELATIONSHIP from 'source-uid' to 'target-uid' not found" in str(exc_info.value)
+        mock_repo.delete_relationship.assert_called_once_with(
+            "source-uid", "target-uid", "NON_EXISTENT_RELATIONSHIP"
+        )
+        assert (
+            "Relationship NON_EXISTENT_RELATIONSHIP from 'source-uid' to 'target-uid' "
+            "not found" in str(exc_info.value)
+        )
+
 
 class TestGraphServiceCreateNodesBatch:
     def test_create_nodes_batch_success(self):
@@ -572,15 +606,15 @@ class TestGraphServiceCreateNodesBatch:
                 label="TestLabel",
                 name="Test Node 1",
                 created_at=datetime.now(),
-                updated_at=datetime.now()
+                updated_at=datetime.now(),
             ),
             NodeResponse(
                 uid="node-2-uid",
                 label="TestLabel",
                 name="Test Node 2",
                 created_at=datetime.now(),
-                updated_at=datetime.now()
-            )
+                updated_at=datetime.now(),
+            ),
         ]
         mock_repo.create_node = Mock(side_effect=node_responses)
 
@@ -589,7 +623,7 @@ class TestGraphServiceCreateNodesBatch:
 
         nodes_create = [
             NodeCreate(label="TestLabel", name="Test Node 1"),
-            NodeCreate(label="TestLabel", name="Test Node 2")
+            NodeCreate(label="TestLabel", name="Test Node 2"),
         ]
 
         result = service.create_nodes_batch(nodes_create)
@@ -610,7 +644,7 @@ class TestGraphServiceCreateNodesBatch:
             label="TestLabel",
             name="Test Node 1",
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
         mock_repo.create_node = Mock(return_value=node_response)
 
@@ -619,7 +653,7 @@ class TestGraphServiceCreateNodesBatch:
 
         nodes_create = [
             NodeCreate(label="TestLabel", name="Test Node 1"),
-            NodeCreate(label="TestLabel", name="Test Node 1")
+            NodeCreate(label="TestLabel", name="Test Node 1"),
         ]
 
         result = service.create_nodes_batch(nodes_create)
@@ -642,7 +676,7 @@ class TestGraphServiceCreateRelationshipsBatch:
                 rel_type="TEST_RELATIONSHIP_1",
                 weight=1.0,
                 created_at=datetime.now(),
-                updated_at=datetime.now()
+                updated_at=datetime.now(),
             ),
             RelationshipResponse(
                 source_uid="source-uid-2",
@@ -650,8 +684,8 @@ class TestGraphServiceCreateRelationshipsBatch:
                 rel_type="TEST_RELATIONSHIP_2",
                 weight=0.5,
                 created_at=datetime.now(),
-                updated_at=datetime.now()
-            )
+                updated_at=datetime.now(),
+            ),
         ]
         mock_repo.create_relationship = Mock(side_effect=rel_responses)
 
@@ -662,14 +696,14 @@ class TestGraphServiceCreateRelationshipsBatch:
             RelationshipCreate(
                 source_uid="source-uid-1",
                 target_uid="target-uid-1",
-                rel_type="TEST_RELATIONSHIP_1"
+                rel_type="TEST_RELATIONSHIP_1",
             ),
             RelationshipCreate(
                 source_uid="source-uid-2",
                 target_uid="target-uid-2",
                 rel_type="TEST_RELATIONSHIP_2",
-                weight=0.5
-            )
+                weight=0.5,
+            ),
         ]
 
         result = service.create_relationships_batch(rels_create)
@@ -690,18 +724,17 @@ class TestGraphServiceCreateRelationshipsBatch:
                     label="SourceLabel",
                     name="Source Node 1",
                     created_at=datetime.now(),
-                    updated_at=datetime.now()
+                    updated_at=datetime.now(),
                 )
-            elif uid == "target-uid-1":
+            if uid == "target-uid-1":
                 return NodeResponse(
                     uid="target-uid-1",
                     label="TargetLabel",
                     name="Target Node 1",
                     created_at=datetime.now(),
-                    updated_at=datetime.now()
+                    updated_at=datetime.now(),
                 )
-            else:
-                return None
+            return None
 
         mock_repo.get_node = Mock(side_effect=get_node_side_effect)
 
@@ -712,13 +745,13 @@ class TestGraphServiceCreateRelationshipsBatch:
             RelationshipCreate(
                 source_uid="source-uid-1",
                 target_uid="target-uid-1",
-                rel_type="TEST_RELATIONSHIP_1"
+                rel_type="TEST_RELATIONSHIP_1",
             ),
             RelationshipCreate(
                 source_uid="non-existent-source-uid",
                 target_uid="target-uid-2",
-                rel_type="TEST_RELATIONSHIP_2"
-            )
+                rel_type="TEST_RELATIONSHIP_2",
+            ),
         ]
 
         result = service.create_relationships_batch(rels_create)
@@ -750,10 +783,7 @@ class TestGraphServiceGetStats:
         expected_stats = {
             "total_nodes": 10,
             "total_relationships": 5,
-            "labels": {
-                "Technology": 7,
-                "Company": 3
-            }
+            "labels": {"Technology": 7, "Company": 3},
         }
         mock_repo.get_stats = Mock(return_value=expected_stats)
 

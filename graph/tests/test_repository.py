@@ -1,14 +1,18 @@
-import pytest
-from unittest.mock import Mock
 from datetime import datetime
-import uuid
+from unittest.mock import Mock
 
-from graph.repository import GraphRepository
 from graph.connection import Neo4jConnection
 from graph.models import (
-    NodeCreate, NodeFilter, NodeResponse, NodeUpdate,
-    RelationshipCreate, RelationshipFilter, RelationshipResponse, RelationshipUpdate
+    NodeCreate,
+    NodeFilter,
+    NodeResponse,
+    NodeUpdate,
+    RelationshipCreate,
+    RelationshipFilter,
+    RelationshipResponse,
+    RelationshipUpdate,
 )
+from graph.repository import GraphRepository
 
 
 class TestGraphRepositoryInit:
@@ -29,13 +33,14 @@ class TestGraphRepositoryInitSchema:
         repo.init_schema()
 
         expected_queries = [
-            "CREATE CONSTRAINT node_uid_unique IF NOT EXISTS FOR (n:_Node) REQUIRE n.uid IS UNIQUE",
+            "CREATE CONSTRAINT node_uid_unique IF NOT EXISTS "
+            "FOR (n:_Node) REQUIRE n.uid IS UNIQUE",
             "CREATE INDEX node_name_index IF NOT EXISTS FOR (n:_Node) ON (n.name)",
-            "CREATE INDEX node_source_index IF NOT EXISTS FOR (n:_Node) ON (n.source)"
+            "CREATE INDEX node_source_index IF NOT EXISTS FOR (n:_Node) ON (n.source)",
         ]
 
         assert mock_connection.execute_write.call_count == 3
-        for i, query in enumerate(expected_queries):
+        for _i, query in enumerate(expected_queries):
             mock_connection.execute_write.assert_any_call(query)
 
 
@@ -47,7 +52,9 @@ class TestGraphRepositoryClearAll:
         repo = GraphRepository(mock_connection)
         repo.clear_all()
 
-        mock_connection.execute_write.assert_called_once_with("MATCH (n) DETACH DELETE n")
+        mock_connection.execute_write.assert_called_once_with(
+            "MATCH (n) DETACH DELETE n"
+        )
 
 
 class TestGraphRepositoryGetStats:
@@ -57,10 +64,7 @@ class TestGraphRepositoryGetStats:
         mock_connection.execute_read.side_effect = [
             [{"count": 10}],
             [{"count": 5}],
-            [
-                {"label": "Person", "count": 7},
-                {"label": "Organization", "count": 3}
-            ]
+            [{"label": "Person", "count": 7}, {"label": "Organization", "count": 3}],
         ]
 
         repo = GraphRepository(mock_connection)
@@ -69,10 +73,7 @@ class TestGraphRepositoryGetStats:
         expected_stats = {
             "total_nodes": 10,
             "total_relationships": 5,
-            "labels": {
-                "Person": 7,
-                "Organization": 3
-            }
+            "labels": {"Person": 7, "Organization": 3},
         }
 
         assert stats == expected_stats
@@ -89,11 +90,11 @@ class TestGraphRepositoryCreateNode:
                 "name": "Test Node",
                 "description": "A test node",
                 "source": "test-source",
-                "created_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 1))),
-                "updated_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 1))),
-                "custom_prop": "value"
+                "created_at": Mock(to_native=Mock(return_value=datetime.now())),
+                "updated_at": Mock(to_native=Mock(return_value=datetime.now())),
+                "custom_prop": "value",
             },
-            "labels": ["_Node", "TestLabel"]
+            "labels": ["_Node", "TestLabel"],
         }
         mock_connection.execute_write.return_value = [mock_record]
 
@@ -104,7 +105,7 @@ class TestGraphRepositoryCreateNode:
             name="Test Node",
             description="A test node",
             source="test-source",
-            properties={"custom_prop": "value"}
+            properties={"custom_prop": "value"},
         )
 
         result = repo.create_node(node_create)
@@ -138,10 +139,10 @@ class TestGraphRepositoryGetNode:
                 "name": "Test Node",
                 "description": "A test node",
                 "source": "test-source",
-                "created_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 1))),
-                "updated_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 1)))
+                "created_at": Mock(to_native=Mock(return_value=datetime.now())),
+                "updated_at": Mock(to_native=Mock(return_value=datetime.now())),
             },
-            "labels": ["_Node", "TestLabel"]
+            "labels": ["_Node", "TestLabel"],
         }
         mock_connection.execute_read.return_value = [mock_record]
 
@@ -175,10 +176,10 @@ class TestGraphRepositoryFindNodes:
                     "name": "Test Node 1",
                     "description": "First test node",
                     "source": "test-source",
-                    "created_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 1))),
-                    "updated_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 1)))
+                    "created_at": Mock(to_native=Mock(return_value=datetime.now())),
+                    "updated_at": Mock(to_native=Mock(return_value=datetime.now())),
                 },
-                "labels": ["_Node", "TestLabel"]
+                "labels": ["_Node", "TestLabel"],
             },
             {
                 "n": {
@@ -186,11 +187,11 @@ class TestGraphRepositoryFindNodes:
                     "name": "Test Node 2",
                     "description": "Second test node",
                     "source": "test-source",
-                    "created_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 2))),
-                    "updated_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 2)))
+                    "created_at": Mock(to_native=Mock(return_value=datetime.now())),
+                    "updated_at": Mock(to_native=Mock(return_value=datetime.now())),
                 },
-                "labels": ["_Node", "TestLabel"]
-            }
+                "labels": ["_Node", "TestLabel"],
+            },
         ]
         mock_connection.execute_read.return_value = mock_records
 
@@ -258,7 +259,9 @@ class TestGraphRepositoryFindNodes:
 
         repo = GraphRepository(mock_connection)
 
-        node_filter = NodeFilter(properties_match={"status": "active", "type": "premium"})
+        node_filter = NodeFilter(
+            properties_match={"status": "active", "type": "premium"}
+        )
         result = repo.find_nodes(node_filter)
 
         mock_connection.execute_read.assert_called_once()
@@ -302,9 +305,11 @@ class TestGraphRepositoryFindNodes:
 
         repo = GraphRepository(mock_connection)
 
-        created_after = datetime(2025, 1, 1)
-        created_before = datetime(2025, 12, 31)
-        node_filter = NodeFilter(created_after=created_after, created_before=created_before)
+        created_after = datetime.now()
+        created_before = datetime.now()
+        node_filter = NodeFilter(
+            created_after=created_after, created_before=created_before
+        )
         result = repo.find_nodes(node_filter)
 
         mock_connection.execute_read.assert_called_once()
@@ -313,8 +318,8 @@ class TestGraphRepositoryFindNodes:
 
         assert "n.created_at >= datetime($created_after)" in query
         assert "n.created_at <= datetime($created_before)" in query
-        assert params["created_after"] == "2025-01-01T00:00:00"
-        assert params["created_before"] == "2025-12-31T00:00:00"
+        assert params["created_after"] == created_after.isoformat()
+        assert params["created_before"] == created_before.isoformat()
         assert params["offset"] == 0
         assert params["limit"] == 100
 
@@ -331,7 +336,7 @@ class TestGraphRepositoryFindNodes:
 
         mock_connection.execute_read.assert_called_once()
         call_args = mock_connection.execute_read.call_args
-        query, params = call_args[0]
+        _query, params = call_args[0]
 
         assert params["offset"] == 50
         assert params["limit"] == 25
@@ -349,10 +354,10 @@ class TestGraphRepositoryUpdateNode:
                 "name": "Updated Node",
                 "description": "An updated node",
                 "source": "updated-source",
-                "created_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 1))),
-                "updated_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 2)))
+                "created_at": Mock(to_native=Mock(return_value=datetime.now())),
+                "updated_at": Mock(to_native=Mock(return_value=datetime.now())),
             },
-            "labels": ["_Node", "TestLabel"]
+            "labels": ["_Node", "TestLabel"],
         }
         mock_connection.execute_write.return_value = [mock_record]
 
@@ -362,7 +367,7 @@ class TestGraphRepositoryUpdateNode:
             name="Updated Node",
             description="An updated node",
             source="updated-source",
-            properties={"updated_prop": "value"}
+            properties={"updated_prop": "value"},
         )
 
         result = repo.update_node("test-uid", node_update)
@@ -388,16 +393,13 @@ class TestGraphRepositoryUpdateNode:
         assert result.uid == "test-uid"
         assert result.name == "Updated Node"
 
-
     def test_update_node_not_found(self):
         mock_connection = Mock(spec=Neo4jConnection)
         mock_connection.execute_write.return_value = []
 
         repo = GraphRepository(mock_connection)
 
-        node_update = NodeUpdate(
-            name="Updated Node"
-        )
+        node_update = NodeUpdate(name="Updated Node")
 
         result = repo.update_node("non-existent-uid", node_update)
 
@@ -475,10 +477,10 @@ class TestGraphRepositoryCreateRelationship:
             "rel": {
                 "weight": 0.8,
                 "source": "test-source",
-                "created_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 1))),
-                "updated_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 1))),
-                "custom_prop": "value"
-            }
+                "created_at": Mock(to_native=Mock(return_value=datetime.now())),
+                "updated_at": Mock(to_native=Mock(return_value=datetime.now())),
+                "custom_prop": "value",
+            },
         }
         mock_connection.execute_write.return_value = [mock_record]
 
@@ -490,7 +492,7 @@ class TestGraphRepositoryCreateRelationship:
             rel_type="CONNECTED_TO",
             weight=0.8,
             source="test-source",
-            properties={"custom_prop": "value"}
+            properties={"custom_prop": "value"},
         )
 
         result = repo.create_relationship(rel_create)
@@ -524,7 +526,7 @@ class TestGraphRepositoryCreateRelationship:
             source_uid="source-uid",
             target_uid="target-uid",
             rel_type="CONNECTED_TO",
-            weight=0.8
+            weight=0.8,
         )
 
         result = repo.create_relationship(rel_create)
@@ -545,9 +547,9 @@ class TestGraphRepositoryGetRelationships:
                 "rel": {
                     "weight": 0.8,
                     "source": "test-source",
-                    "created_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 1))),
-                    "updated_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 1)))
-                }
+                    "created_at": Mock(to_native=Mock(return_value=datetime.now())),
+                    "updated_at": Mock(to_native=Mock(return_value=datetime.now())),
+                },
             }
         ]
         mock_connection.execute_read.return_value = mock_records
@@ -583,7 +585,7 @@ class TestGraphRepositoryGetRelationships:
             weight_max=1.0,
             source="test-source",
             offset=10,
-            limit=5
+            limit=5,
         )
 
         result = repo.get_relationships("source-uid", rel_filter)
@@ -626,21 +628,21 @@ class TestGraphRepositoryUpdateRelationship:
             "rel": {
                 "weight": 0.9,
                 "source": "updated-source",
-                "created_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 1))),
-                "updated_at": Mock(to_native=Mock(return_value=datetime(2025, 1, 2)))
-            }
+                "created_at": Mock(to_native=Mock(return_value=datetime.now())),
+                "updated_at": Mock(to_native=Mock(return_value=datetime.now())),
+            },
         }
         mock_connection.execute_write.return_value = [mock_record]
 
         repo = GraphRepository(mock_connection)
 
         rel_update = RelationshipUpdate(
-            weight=0.9,
-            source="updated-source",
-            properties={"updated_prop": "value"}
+            weight=0.9, source="updated-source", properties={"updated_prop": "value"}
         )
 
-        result = repo.update_relationship("source-uid", "target-uid", "CONNECTED_TO", rel_update)
+        result = repo.update_relationship(
+            "source-uid", "target-uid", "CONNECTED_TO", rel_update
+        )
 
         mock_connection.execute_write.assert_called_once()
         call_args = mock_connection.execute_write.call_args
@@ -672,11 +674,11 @@ class TestGraphRepositoryUpdateRelationship:
 
         repo = GraphRepository(mock_connection)
 
-        rel_update = RelationshipUpdate(
-            weight=0.9
-        )
+        rel_update = RelationshipUpdate(weight=0.9)
 
-        result = repo.update_relationship("source-uid", "target-uid", "CONNECTED_TO", rel_update)
+        result = repo.update_relationship(
+            "source-uid", "target-uid", "CONNECTED_TO", rel_update
+        )
 
         assert result is None
         mock_connection.execute_write.assert_called_once()
