@@ -64,34 +64,34 @@ class WikidataRestClient:
             print(f"Ошибка получения деталей {tech_name}: {e}")
             return None
 
-    def get_companies_using_technology(self, prop_pid: str, tech_qid: str) -> List[Dict[str, str]]:
-        """Находит компании, использующие указанную технологию."""
-        companies = []
+    def get_related_entities(self, prop_pid: str, tech_qid: str) -> List[Dict[str, str]]:
+        """Находит сущности, связанные с технологией через указанное свойство."""
+        entities = []
         try:
             item = self.get_item(tech_qid)
             if "statements" in item and prop_pid in item["statements"]:
                 for stmt in item["statements"][prop_pid]:
                     if stmt.get("value", {}).get("type") == "value":
-                        company_qid = stmt["value"].get("content")
-                        if company_qid:
+                        entity_qid = stmt["value"].get("content")
+                        if entity_qid:
                             try:
-                                company_item = self.get_item(company_qid)
-                                company_name = company_item.get("labels", {}).get("en", company_qid)
-                                companies.append({
-                                    "id": company_qid,
-                                    "name": company_name,
-                                    "type": "company"
+                                entity_item = self.get_item(entity_qid)
+                                entity_name = entity_item.get("labels", {}).get("en", entity_qid)
+                                entities.append({
+                                    "id": entity_qid,
+                                    "name": entity_name,
+                                    "type": "entity"
                                 })
                             except Exception as e:
-                                print(f"Ошибка получения сведений о компании {company_qid}: {e}")
-                                companies.append({
-                                    "id": company_qid,
-                                    "name": company_qid,
-                                    "type": "company"
+                                print(f"Ошибка получения сущности {entity_qid}: {e}")
+                                entities.append({
+                                    "id": entity_qid,
+                                    "name": entity_qid,
+                                    "type": "entity"
                                 })
         except Exception as e:
             print(f"Ошибка получения данных для {tech_qid}: {e}")
-        return companies
+        return entities
 
     def get_item(self, item_id: str) -> Dict[str, Any]:
         """Получает полную информацию о сущности по QID."""

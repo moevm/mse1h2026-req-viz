@@ -10,7 +10,7 @@ class WikidataClient:
 
     def __init__(self, relationships_path: Optional[Path] = None,
                  config_path: Optional[Path] = None,
-                 parsing_type: Optional[str] = "sparql"):
+                 parsing_type: Optional[str] = "rest"):
         base = Path(__file__).parent.parent
         self.relationships_path = relationships_path or base / "relationships.yml"
         self.config_path = config_path or base / "config.yml"
@@ -35,14 +35,10 @@ class WikidataClient:
         return self.rest.get_technology_info(tech_name)
 
     def get_data(self, tech_name: str, relationship_name: str) -> List[Dict[str, str]]:
-        if relationship_name in ["used by", "uses"]:
-            return self._get_companies_using_technology(tech_name, relationship_name)
-
-    def _get_companies_using_technology(self, tech_name: str, relationship_name: str) -> List[Dict[str, str]]:
+        """Возвращает список сущностей по указанному отношению."""
         tech_info = self.get_technology_info(tech_name)
         if not tech_info:
             return []
-
         tech_qid = tech_info["id"]
 
         rel_conf = None
@@ -50,13 +46,14 @@ class WikidataClient:
             if rel['predicate'] == relationship_name:
                 rel_conf = rel
                 break
-
         if not rel_conf:
             raise ValueError(f"Неизвестное отношение: {relationship_name}")
 
-        prop_pid = rel_conf['wikidata_property']
+        if relationship_name == "used by":
+            return self.sparql.get_using_technology(tech_qid)
 
+        prop_pid = rel_conf['wikidata_property']
         if self.parsing_type == "rest":
-            return self.rest.get_companies_using_technology(prop_pid, tech_qid)
+            return self.rest.get_related_entities(prop_pid, tech_qid)
         else:
-            return self.sparql.get_companies_using_technology(prop_pid, tech_qid)
+            return self.sparql.get_related_entities(prop_pid, tech_qid)
