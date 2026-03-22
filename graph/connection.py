@@ -121,7 +121,10 @@ class Neo4jConnection:
 
     def close(self) -> None:
         if self._driver is not None:
-            self._driver.close()
+            try:
+                self._driver.close()
+            except Exception:
+                pass
             self._driver = None
             logger.info("Neo4j connection closed.")
 
