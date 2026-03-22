@@ -10,12 +10,29 @@ RUN pip install --no-cache-dir poetry==$POETRY_VERSION
 
 WORKDIR /app
 
-COPY pyproject.toml poetry.lock ./
+COPY graph/pyproject.toml /app/graph/
+COPY graph/poetry.lock /app/graph/poetry.lock
 
-RUN poetry config virtualenvs.create false \
-    && poetry install --only main --no-root
+COPY parser/pyproject.toml /app/parser/
+COPY parser/poetry.lock /app/parser/poetry.lock
 
-COPY . ./ecosystem_analyzer
+COPY ecosystem_analyzer/pyproject.toml /app/ecosystem_analyzer/
+COPY ecosystem_analyzer/poetry.lock /app/ecosystem_analyzer/poetry.lock
+
+RUN poetry -C /app/graph config virtualenvs.create false \
+    && poetry -C /app/graph install --only main --no-root
+
+RUN poetry -C /app/parser config virtualenvs.create false \
+    && poetry -C /app/parser install --only main --no-root
+
+RUN poetry -C /app/ecosystem_analyzer config virtualenvs.create false \
+    && poetry -C /app/ecosystem_analyzer install --only main --no-root
+
+COPY graph /app/graph
+COPY parser /app/parser
+COPY ecosystem_analyzer /app/ecosystem_analyzer
+
+RUN poetry -C /app/ecosystem_analyzer install --only main --no-root
 
 EXPOSE 8000
 

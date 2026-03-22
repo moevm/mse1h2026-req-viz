@@ -4,12 +4,10 @@ from config import NODE_COLORS, EDGE_COLORS, DASHED_EDGE_TYPES
 
 
 def get_node_color(node_type: str) -> str:
-    """Возвращает цвет узла по типу"""
     return NODE_COLORS.get(node_type, "#9E9E9E")
 
 
 def get_edge_color(edge_type: str) -> str:
-    """Возвращает цвет связи по типу"""
     return EDGE_COLORS.get(edge_type, "#9E9E9E")
 
 
@@ -17,23 +15,28 @@ def create_graph_visualization(
     nodes: list, 
     edges: list, 
     node_filters: list, 
-    edge_weight_thresholds: dict
+    edge_weight_thresholds: dict,
+    binary_edge_filters: dict = None
 ) -> str:
+    """Создаёт HTML-визуализацию графа с фильтрацией узлов и связей."""
+    if binary_edge_filters is None:
+        binary_edge_filters = {}
 
-    # Фильтрация узлов
     filtered_nodes = [n for n in nodes if n["type"] in node_filters]
     filtered_node_ids = {n["id"] for n in filtered_nodes}
     
-    # Фильтрация связей
     filtered_edges = []
     for e in edges:
+        if e["type"] in binary_edge_filters and not binary_edge_filters[e["type"]]:
+            continue
+        
+        if e["source"] not in filtered_node_ids or e["target"] not in filtered_node_ids:
+            continue
+        
         min_weight = edge_weight_thresholds.get(e["type"], 0.0)
-        if (e["weight"] <= min_weight and 
-            e["source"] in filtered_node_ids and 
-            e["target"] in filtered_node_ids):
+        if e["weight"] >= min_weight:
             filtered_edges.append(e)
     
-    # Создание сети PyVis
     net = Network(
         height="500px", 
         width="100%", 
@@ -41,7 +44,6 @@ def create_graph_visualization(
         font_color="white"
     )
     
-    # Добавление узлов
     for node in filtered_nodes:
         net.add_node(
             node["id"], 
@@ -51,18 +53,16 @@ def create_graph_visualization(
             size=25
         )
     
-    # Добавление связей
     for edge in filtered_edges:
         net.add_edge(
             edge["source"], 
             edge["target"],
             title=f"{edge['type']} (вес: {edge['weight']})",
-            width=edge["weight"] * 3,  
+            width=edge["weight"] * 4,  
             color=get_edge_color(edge["type"]),
             dashes=edge["type"] in DASHED_EDGE_TYPES
         )
     
-    # Настройка физики графа
     net.set_options("""
     {
         "physics": {

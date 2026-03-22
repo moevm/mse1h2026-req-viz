@@ -9,7 +9,10 @@ WORKDIR /app
 RUN pip install --no-cache-dir \
     streamlit \
     pandas \
-    pyvis
+    pyvis \
+    requests \
+    urllib3 \
+    reportlab
 
 COPY . .
 

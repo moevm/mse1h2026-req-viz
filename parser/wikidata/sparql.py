@@ -13,7 +13,6 @@ class WikidataSPARQLClient:
             "User-Agent": "parser/1.0"
         })
 
-
     def get_companies_using_technology(self, prod_pid: str, tech_qid: str) -> List[Dict[str, str]]:
         """Находит компании, использующие указанную технологию."""
         query = f"""
