@@ -1,12 +1,10 @@
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from neo4j import GraphDatabase, Driver, Session, ManagedTransaction, Result
 from neo4j.exceptions import (
     AuthError,
     ClientError,
-    ServiceUnavailable,
-    SessionExpired,
-    TransientError,
+    ServiceUnavailable
 )
 
 from graph.connection import Neo4jConnection, with_retry, _RETRYABLE_EXCEPTIONS
