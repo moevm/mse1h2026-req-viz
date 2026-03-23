@@ -67,6 +67,7 @@ NODE_TYPE_FILTERS: List[Tuple[str, str]] = [
     ("License", "🟠 Лицензия"),
     ("Person", "🟣 Человек"),
     ("Organization", "⚫ Организация"),
+    ("Entity", "🟢 Сущность"),  
 ]
 
 
