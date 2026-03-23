@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 import os
@@ -114,7 +113,7 @@ async def get_graph(
         raise HTTPException(status_code=500, detail=f"Parser error: {str(e)}")
 
     if not graph:
-        logger.info(f"Could not parse source")
+        logger.info("Could not parse source")
         raise HTTPException(status_code=404, detail="Could not parse source")
 
     # Save in DB

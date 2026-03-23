@@ -1,4 +1,3 @@
-import logging
 from typing import List, Optional
 from .models import GraphResponse, Node, Edge, Statistics
 from graph.service import GraphService
@@ -11,7 +10,6 @@ from graph.models import (
     SubgraphResponse,
     NodeResponse,
 )
-from graph.exceptions import NodeNotFoundError, GraphConnectionError
 
 
 class Database:
