@@ -6,14 +6,20 @@ from .wikidata.wikidata import WikidataClient
 class Parser:
     """Основной класс для построения графа отношений между технологиями."""
 
-    def __init__(self, relationships_path: Optional[Path] = None, config_path: Optional[Path] = None):
+    def __init__(
+        self,
+        relationships_path: Optional[Path] = None,
+        config_path: Optional[Path] = None,
+    ):
         base = Path(__file__).parent
         relationships_path = relationships_path or base / "relationships.yml"
         config_path = config_path or base / "config.yml"
 
         self.wikidata_client = WikidataClient(relationships_path, config_path)
 
-    def graph(self, technologies: List[str], relationships: List[str]) -> Dict[str, Any]:
+    def graph(
+        self, technologies: List[str], relationships: List[str]
+    ) -> Dict[str, Any]:
         """Строит граф для указанных технологий и отношений."""
         nodes = []
         edges = []
@@ -28,11 +34,7 @@ class Parser:
             tech_qid = tech_info["id"]
 
             node_ids.add(tech_qid)
-            nodes.append({
-                "id": tech_qid,
-                "name": tech_name,
-                "type": "technology"
-            })
+            nodes.append({"id": tech_qid, "name": tech_name, "type": "technology"})
 
             for rel_name in relationships:
                 data = self.wikidata_client.get_data(tech_name, rel_name)
@@ -42,14 +44,13 @@ class Parser:
                         node_ids.add(item["id"])
                         nodes.append(item)
 
-                    edges.append({
-                        "source": item["id"],
-                        "target": tech_qid,
-                        "predicate": rel_name,
-                        "source_id": "wikidata"
-                    })
+                    edges.append(
+                        {
+                            "source": item["id"],
+                            "target": tech_qid,
+                            "predicate": rel_name,
+                            "source_id": "wikidata",
+                        }
+                    )
 
-        return {
-            "nodes": nodes,
-            "edges": edges
-        }
+        return {"nodes": nodes, "edges": edges}
