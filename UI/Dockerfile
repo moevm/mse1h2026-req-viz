@@ -1,7 +1,8 @@
 FROM python:3.14-rc-slim
 
 RUN apt-get update && apt-get install -y \
-    build-essential \
+    fonts-dejavu-core \
+    fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
