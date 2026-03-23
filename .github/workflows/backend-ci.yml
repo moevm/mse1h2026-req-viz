@@ -1,0 +1,81 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'ecosystem_analyzer/**'
+      - 'graph/**'
+      - 'parser/**'
+      - '**/pyproject.toml'
+      - '**/poetry.lock'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'ecosystem_analyzer/**'
+      - 'graph/**'
+      - 'parser/**'
+      - '**/pyproject.toml'
+      - '**/poetry.lock'
+      - '.github/workflows/**'
+
+jobs:
+  test-and-analyze:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ "3.14" ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "POETRY_NO_INTERACTION=1" >> $GITHUB_ENV
+
+      - name: Configure Poetry
+        run: poetry config virtualenvs.create false
+
+      - name: Install dependencies (graph module)
+        working-directory: graph
+        run: poetry install --with dev --no-root
+
+      - name: Install dependencies (parser module)
+        working-directory: parser
+        run: poetry install --no-root
+
+      - name: Install dependencies (ecosystem_analyzer)
+        working-directory: ecosystem_analyzer
+        run: poetry install --no-root
+
+      - name: Run Ruff linting
+        run: |
+          cd graph
+          poetry run ruff check . ../ecosystem_analyzer ../parser
+        continue-on-error: true
+
+      - name: Run Ruff format check
+        run: |
+          cd graph
+          poetry run ruff format --check . ../ecosystem_analyzer ../parser
+        continue-on-error: true
+
+      - name: Run tests with coverage
+        working-directory: graph
+        run: |
+          poetry run pytest \
+            --cov=./graph \
+            --cov=../ecosystem_analyzer \
+            --cov=../parser \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -v
