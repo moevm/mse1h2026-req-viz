@@ -9,10 +9,9 @@ class WikidataRestClient:
         self.base_url = endpoint
         self.config = config
         self.session = requests.Session()
-        self.session.headers.update({
-            "Accept": "application/json",
-            "User-Agent": "parser/1.0"
-        })
+        self.session.headers.update(
+            {"Accept": "application/json", "User-Agent": "parser/1.0"}
+        )
 
     def search_technology(self, tech_name: str) -> Optional[Dict[str, str]]:
         """
@@ -20,10 +19,10 @@ class WikidataRestClient:
         Выбирает наиболее релевантный результат, отдавая предпочтение ПО.
         """
         try:
-            language = self.config.get('search', {}).get('language', 'en')
+            language = self.config.get("search", {}).get("language", "en")
             response = self.session.get(
                 f"{self.base_url}/search/items",
-                params={"q": tech_name, "language": language, "limit": 5}
+                params={"q": tech_name, "language": language, "limit": 5},
             )
             response.raise_for_status()
             data = response.json()
@@ -31,7 +30,9 @@ class WikidataRestClient:
             if not results:
                 return None
 
-            keywords = self.config.get('search', {}).get('keywords', {}).get(language, [])
+            keywords = (
+                self.config.get("search", {}).get("keywords", {}).get(language, [])
+            )
             best = None
             for res in results:
                 desc = res.get("description", {}).get("value", "").lower()
@@ -45,7 +46,9 @@ class WikidataRestClient:
             return {
                 "id": best["id"],
                 "name": best.get("display-label", {}).get("value", tech_name),
-                "description": best.get("description", {}).get("value") if best.get("description") else None,
+                "description": best.get("description", {}).get("value")
+                if best.get("description")
+                else None,
             }
         except Exception as e:
             print(f"Ошибка поиска {tech_name}: {e}")
@@ -64,7 +67,9 @@ class WikidataRestClient:
             print(f"Ошибка получения деталей {tech_name}: {e}")
             return None
 
-    def get_related_entities(self, prop_pid: str, tech_qid: str) -> List[Dict[str, str]]:
+    def get_related_entities(
+        self, prop_pid: str, tech_qid: str
+    ) -> List[Dict[str, str]]:
         """Находит сущности, связанные с технологией через указанное свойство."""
         entities = []
         try:
@@ -76,19 +81,25 @@ class WikidataRestClient:
                         if entity_qid:
                             try:
                                 entity_item = self.get_item(entity_qid)
-                                entity_name = entity_item.get("labels", {}).get("en", entity_qid)
-                                entities.append({
-                                    "id": entity_qid,
-                                    "name": entity_name,
-                                    "type": "entity"
-                                })
+                                entity_name = entity_item.get("labels", {}).get(
+                                    "en", entity_qid
+                                )
+                                entities.append(
+                                    {
+                                        "id": entity_qid,
+                                        "name": entity_name,
+                                        "type": "entity",
+                                    }
+                                )
                             except Exception as e:
                                 print(f"Ошибка получения сущности {entity_qid}: {e}")
-                                entities.append({
-                                    "id": entity_qid,
-                                    "name": entity_qid,
-                                    "type": "entity"
-                                })
+                                entities.append(
+                                    {
+                                        "id": entity_qid,
+                                        "name": entity_qid,
+                                        "type": "entity",
+                                    }
+                                )
         except Exception as e:
             print(f"Ошибка получения данных для {tech_qid}: {e}")
         return entities
