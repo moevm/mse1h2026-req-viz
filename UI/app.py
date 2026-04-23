@@ -245,8 +245,6 @@ def main():
                             )
                             st.success("Отчет сгенерирован на основе ответа backend")
                         elif 'report_markdown' in resp_json:
-                            st.markdown(resp_json['report_markdown'])
-
                             pdf_buffer = report_gen.generate_pdf(
                                 nodes=nodes_for_report,
                                 edges=edges_for_report,
