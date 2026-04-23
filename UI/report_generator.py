@@ -72,12 +72,13 @@ class ReportGenerator:
         edges: List[Dict[str, Any]],
         selected_nodes: List[str] | None = None,
         selected_edge_types: List[str] | None = None,
-        technology_name: str = "Unknown"
+        technology_name: str = "Unknown",
+        additional_content: str | None = None
     ) -> BytesIO:
         """Генерирует PDF-отчет с таблицами узлов, связей и статистики."""
         filtered_nodes = self._filter_nodes(nodes, selected_nodes)
         filtered_edges = self._filter_edges(edges, selected_edge_types, filtered_nodes)
-        
+
         pdf_buffer = BytesIO()
         doc = SimpleDocTemplate(
             pdf_buffer,
@@ -87,33 +88,38 @@ class ReportGenerator:
             topMargin=0.5 * inch,
             bottomMargin=0.5 * inch
         )
-        
+
         story = []
-        
+
         title = Paragraph(f"Анализ: {technology_name}", self.styles['Title_Custom'])
         story.append(title)
-        
+
         timestamp = Paragraph(
             f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}",
             self.styles['Normal']
         )
         story.append(timestamp)
         story.append(Spacer(1, 0.3 * inch))
-        
+
+        if additional_content:
+            story.append(Paragraph("Дополнительная информация", self.styles['Heading_Custom']))
+            story.append(Paragraph(additional_content, self.styles['Normal']))
+            story.append(Spacer(1, 0.3 * inch))
+
         story.append(Paragraph("Узлы", self.styles['Heading_Custom']))
         nodes_table = self._create_nodes_table(filtered_nodes)
         story.append(nodes_table)
         story.append(Spacer(1, 0.2 * inch))
-        
+
         story.append(Paragraph("Связи", self.styles['Heading_Custom']))
         edges_table = self._create_edges_table(filtered_edges, filtered_nodes)
         story.append(edges_table)
         story.append(Spacer(1, 0.2 * inch))
-        
+
         story.append(Paragraph("Статистика", self.styles['Heading_Custom']))
         stats_table = self._create_stats_table(filtered_nodes, filtered_edges)
         story.append(stats_table)
-        
+
         doc.build(story)
         pdf_buffer.seek(0)
         return pdf_buffer
