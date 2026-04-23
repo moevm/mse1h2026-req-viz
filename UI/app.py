@@ -208,7 +208,7 @@ def main():
                             mime="application/pdf",
                             key="download_report_local"
                         )
-                        st.success("Отчет готов (сгенерирован локально)")
+                        st.success("Отчет готов")
                    
                     content_type = resp.headers.get('content-type', '') if resp is not None else ''
                     if resp.status_code == 200 and content_type.startswith('application/pdf'):
@@ -260,7 +260,7 @@ def main():
                                 mime="application/pdf",
                                 key="download_report_with_backend_content"
                             )
-                            st.success("Отчет дополнен данными от backend")
+                            st.success("Отчет готов")
                         else:
                             st.error("Backend вернул неожиданный формат ответа. Отображаю содержимое ответа в отчете.")
                             st.markdown("### Ответ от Backend")
