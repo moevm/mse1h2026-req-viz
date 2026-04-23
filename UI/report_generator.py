@@ -1,3 +1,4 @@
+import re
 from typing import Dict, List, Any
 from datetime import datetime
 from io import BytesIO
@@ -102,8 +103,14 @@ class ReportGenerator:
         story.append(Spacer(1, 0.3 * inch))
 
         if additional_content:
-            story.append(Paragraph("Дополнительная информация", self.styles['Heading_Custom']))
-            story.append(Paragraph(additional_content, self.styles['Normal']))
+            story.append(
+                Paragraph("Дополнительная информация", self.styles['Heading_Custom'])
+            )
+
+            md_elements = self._markdown_to_story(additional_content)
+
+            story.extend(md_elements)
+
             story.append(Spacer(1, 0.3 * inch))
 
         story.append(Paragraph("Узлы", self.styles['Heading_Custom']))
@@ -268,3 +275,48 @@ class ReportGenerator:
         ]))
         
         return table
+    
+
+    def _markdown_to_story(self, markdown_text: str):
+        """Преобразует Markdown в список Paragraph для reportlab."""
+        
+        elements = []
+        lines = markdown_text.split("\n")
+
+        for line in lines:
+            line = line.strip()
+
+            if not line:
+                elements.append(Spacer(1, 6))
+                continue
+
+            if line.startswith("### "):
+                text = line[4:]
+                elements.append(
+                    Paragraph(text, self.styles['Heading_Custom'])
+                )
+                continue
+
+            if line.startswith("## "):
+                text = line[3:]
+                elements.append(
+                    Paragraph(text, self.styles['Heading_Custom'])
+                )
+                continue
+
+            if line.startswith("# "):
+                text = line[2:]
+                elements.append(
+                    Paragraph(text, self.styles['Heading_Custom'])
+                )
+                continue
+
+            line = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", line)
+
+            line = re.sub(r"\*(.*?)\*", r"<i>\1</i>", line)
+
+            elements.append(
+                Paragraph(line, self.styles['Normal'])
+            )
+
+        return elements
