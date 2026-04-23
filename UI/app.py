@@ -5,6 +5,10 @@ from services import BackendClient, NotFoundError, BackendError
 from visualization import create_graph_visualization
 from report_generator import ReportGenerator
 
+# Streamlit UI для:
+# - поиска технологий
+# - визуализации графа зависимостей
+# - генерации отчётов (PDF)
 
 def main():
     """Главная функция Streamlit приложения для визуализации графов технологий."""
@@ -52,6 +56,10 @@ def main():
             backend = BackendClient()
             
             try:
+                """
+                Отправка запроса на backend для получения графа технологий.
+                Блокирует выполнение до получения ответа.
+                """
                 with st.spinner("Построение графа зависимостей..."):
                     graph = backend.get_graph(search_query)
                     st.session_state.graph_data = graph
@@ -191,6 +199,10 @@ def main():
                     }
 
                     try:
+                        """
+                        Отправка графа в backend для генерации отчёта.
+                        Ожидается ответ в формате JSON.
+                        """
                         resp = backend.generate_report(payload)
                     except Exception as be:
                         st.warning(f"Не удалось обратиться к backend: {str(be)} — сгенерируем отчет локально.")
@@ -211,17 +223,7 @@ def main():
                         st.success("Отчет готов")
                    
                     content_type = resp.headers.get('content-type', '') if resp is not None else ''
-                    if resp.status_code == 200 and content_type.startswith('application/pdf'):
-                        pdf_bytes = resp.content
-                        st.download_button(
-                            label="Скачать PDF",
-                            data=pdf_bytes,
-                            file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
-                            mime="application/pdf",
-                            key="download_report_backend_pdf"
-                        )
-                        st.success("Отчет получен от backend")
-                    elif resp.status_code == 200 and content_type.startswith('application/json'):
+                    if resp.status_code == 200 and content_type.startswith('application/json'):
                         try:
                             resp_json = resp.json()
                         except Exception:
@@ -243,7 +245,7 @@ def main():
                                 mime="application/pdf",
                                 key="download_report_backend_json"
                             )
-                            st.success("Отчет сгенерирован на основе ответа backend")
+                            st.success("Отчет готов")
                         elif 'report_markdown' in resp_json:
                             pdf_buffer = report_gen.generate_pdf(
                                 nodes=nodes_for_report,
