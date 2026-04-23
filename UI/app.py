@@ -56,10 +56,6 @@ def main():
             backend = BackendClient()
             
             try:
-                """
-                Отправка запроса на backend для получения графа технологий.
-                Блокирует выполнение до получения ответа.
-                """
                 with st.spinner("Построение графа зависимостей..."):
                     graph = backend.get_graph(search_query)
                     st.session_state.graph_data = graph
@@ -199,10 +195,6 @@ def main():
                     }
 
                     try:
-                        """
-                        Отправка графа в backend для генерации отчёта.
-                        Ожидается ответ в формате JSON.
-                        """
                         resp = backend.generate_report(payload)
                     except Exception as be:
                         st.warning(f"Не удалось обратиться к backend: {str(be)} — сгенерируем отчет локально.")
