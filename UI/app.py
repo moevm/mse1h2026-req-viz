@@ -6,8 +6,11 @@ from services import BackendClient, NotFoundError, BackendError
 from report_generator import ReportGenerator
 from streamlit_agraph import agraph
 from visualization import create_graph_visualization
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-#логика расширения графв
+executor = ThreadPoolExecutor(max_workers=10)
+
+#логика расширения графа
 def merge_graphs(base_nodes, base_edges, expanded_ids, subgraphs):
     nodes = list(base_nodes)
     edges = list(base_edges)
@@ -92,12 +95,22 @@ def toggle_node(node_id, clean_label):
 
 
 
+def fetch_single_graph(backend, tech_name: str):
+    """Функция для выполнения в отдельном потоке"""
+    try:
+        graph = backend.get_graph(tech_name.strip())
+        return {"name": tech_name.strip(), "data": graph, "error": None}
+    except NotFoundError:
+        return {"name": tech_name.strip(), "data": None, "error": "not_found"}
+    except Exception as e:
+        return {"name": tech_name.strip(), "data": None, "error": str(e)}
+
 def main():
     st.set_page_config(page_title="Tech Graph Analyzer", layout="wide")
     st.title("Визуализация технологических зависимостей")
     
-    if 'graph_data' not in st.session_state:
-        st.session_state.graph_data = None
+    if 'loaded_graphs' not in st.loaded_graphs:
+        st.session_state.loaded_graphs = {} # Ключ: имя технологии, Значение: данные графа
     if 'search_query' not in st.session_state:
         st.session_state.search_query = ""
     # для расширения графа
@@ -133,12 +146,17 @@ def main():
     # обработка поиска 
     if search_button or (search_query and st.session_state.search_query != search_query):
         st.session_state.search_query = search_query
+        technologies = [t.strip() for t in search_query.split(",") if t.strip()]
+        # Удаляем дубликаты. Будет использовано последнее вхождение слова
+        technologies = list({t.lower(): t for t in technologies}.values())
         
         if not search_query.strip():
             st.warning("Пожалуйста, введите название технологии")
             st.session_state.graph_data = None
         else:
             backend = BackendClient()
+            progress_bar = st.progress(0)
+            status_text = st.empty()
             
             try:
                 with st.spinner("Построение графа зависимостей..."):
