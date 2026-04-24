@@ -1,15 +1,11 @@
-# visualization.py
 from pyvis.network import Network
 from config import NODE_COLORS, EDGE_COLORS, DASHED_EDGE_TYPES
-
 
 def get_node_color(node_type: str) -> str:
     return NODE_COLORS.get(node_type, "#9E9E9E")
 
-
 def get_edge_color(edge_type: str) -> str:
     return EDGE_COLORS.get(edge_type, "#9E9E9E")
-
 
 def create_graph_visualization(
     nodes: list, 
@@ -18,7 +14,7 @@ def create_graph_visualization(
     edge_weight_thresholds: dict,
     binary_edge_filters: dict = None
 ) -> str:
-    """Создаёт HTML-визуализацию графа с фильтрацией узлов и связей."""
+    """Создаёт HTML-визуализацию графа с фильтрацией."""
     if binary_edge_filters is None:
         binary_edge_filters = {}
 
@@ -29,19 +25,18 @@ def create_graph_visualization(
     for e in edges:
         if e["type"] in binary_edge_filters and not binary_edge_filters[e["type"]]:
             continue
-        
         if e["source"] not in filtered_node_ids or e["target"] not in filtered_node_ids:
             continue
-        
         min_weight = edge_weight_thresholds.get(e["type"], 0.0)
         if e["weight"] >= min_weight:
             filtered_edges.append(e)
     
     net = Network(
-        height="500px", 
+        height="550px", 
         width="100%", 
         bgcolor="#222222", 
-        font_color="white"
+        font_color="white",
+        notebook=False
     )
     
     for node in filtered_nodes:
@@ -76,7 +71,8 @@ def create_graph_visualization(
             "solver": "forceAtlas2Based",
             "timestep": 0.35,
             "stabilization": {"enabled": true, "iterations": 100}
-        }
+        },
+        "interaction": {"hover": true}
     }
     """)
     
