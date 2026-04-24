@@ -8,30 +8,60 @@ from report_generator import ReportGenerator
 
 
 #логика расширения графв
-def merge_graphs(base_nodes, base_edges, expanded, subgraphs):
-    """Собирает итоговый граф: база + активные расширения."""
+def merge_graphs(base_nodes, base_edges, expanded_ids, subgraphs):
     nodes = list(base_nodes)
     edges = list(base_edges)
 
-    node_ids = {n["id"] for n in nodes}
-    edge_ids = {(e["source"], e["target"]) for e in edges}
+    label_to_id = {n["label"]: n["id"] for n in nodes}
 
-    for nid in expanded:
+    seen_edges = {
+        (e["source"], e["target"], e.get("type"))
+        for e in edges
+    }
+
+    for nid in expanded_ids:
         sub = subgraphs.get(nid)
         if not sub:
             continue
+
         for n in sub["nodes"]:
-            if n["id"] not in node_ids:
+            label = n["label"]
+
+            if label not in label_to_id:
                 nodes.append(n)
-                node_ids.add(n["id"])
+                label_to_id[label] = n["id"]
+
         for e in sub["edges"]:
-            key = (e["source"], e["target"])
-            if key not in edge_ids:
-                edges.append(e)
-                edge_ids.add(key)
+            src_label = next(
+                n["label"]
+                for n in sub["nodes"]
+                if n["id"] == e["source"]
+            )
+
+            tgt_label = next(
+                n["label"]
+                for n in sub["nodes"]
+                if n["id"] == e["target"]
+            )
+
+            new_source = label_to_id[src_label]
+            new_target = label_to_id[tgt_label]
+
+            key = (
+                new_source,
+                new_target,
+                e.get("type")
+            )
+
+            if key not in seen_edges:
+                new_edge = e.copy()
+                new_edge["source"] = new_source
+                new_edge["target"] = new_target
+
+                edges.append(new_edge)
+                seen_edges.add(key)
 
     return {"nodes": nodes, "edges": edges}
-
 
 def toggle_node(node_id, clean_label):
     """Переключает состояние узла: добавляет/удаляет подграф."""
