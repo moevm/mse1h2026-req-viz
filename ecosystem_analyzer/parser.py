@@ -1,6 +1,8 @@
 from typing import Optional, List, Dict, Any
 from .models import Node, Edge, Statistics, GraphResponse
 from parser.parser import Parser
+import logging
+logger = logging.getLogger(__name__)
 
 
 class ParserWrapper:
@@ -15,10 +17,12 @@ class ParserWrapper:
         """Получить граф для заданной технологии и списка отношений."""
         raw_graph: Dict[str, Any]
         try:
+            logger.info(f"[PARSER] Start parsing: {technology}, types: {relationships}")
             raw_graph = self._parser.graph(
                 technologies=[technology], relationships=relationships
             )
         except ValueError:
+            logger.warning(f"[PARSER] Returning None for {technology}. Reason: ValueError")
             return None
 
         return self._to_api_format(raw_graph)

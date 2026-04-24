@@ -93,7 +93,7 @@ async def get_graph(
     rel_types_list = ALLOWED_REL_TYPES
     if rel_types:
         rel_types_list = rel_types.split(",")
-    rel_types_list=[x.upper().replace(" ", "_") for x in rel_types_list]
+    rel_types=[x.upper().replace(" ", "_") for x in rel_types_list]
 
     # Search in DB
     graph = await loop.run_in_executor(executor,
