@@ -31,7 +31,7 @@ def create_graph_visualization(
     """
     Создаёт структуру для streamlit-agraph (nodes, edges, config)
     """
-
+    
     if binary_edge_filters is None:
         binary_edge_filters = {}
 
@@ -76,7 +76,7 @@ def create_graph_visualization(
                 size=25,
                 color=get_node_color(n["type"]),
                 font={"color": "white", "size": 12},
-                title="Раскрыть"
+                title='Раскрыть'
             )
         )
 
@@ -102,20 +102,8 @@ def create_graph_visualization(
         height=550,
         width="100%",
         directed=True,
-
         nodeHighlightBehavior=True,
-        highlightColor="#F7A7A6",
-
-        collapsible=True,
-        physics=True,
-
-        node={
-            "font": {"size": 12}
-        },
-
-        edges={
-            "smooth": True
-        }
+        highlightColor="#F7A7A6"  
     )
 
     return agraph_nodes, agraph_edges, config
