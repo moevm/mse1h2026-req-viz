@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
+
 from config import NODE_TYPE_FILTERS, EDGE_TYPES, EDGE_TYPE_NAMES, WEIGHTED_EDGE_TYPES, BINARY_EDGE_TYPES
 from services import BackendClient, NotFoundError, BackendError
-from visualization import create_graph_visualization
 from report_generator import ReportGenerator
-
+from streamlit_agraph import agraph, Node, Edge, Config
 
 
 #логика расширения графв
@@ -210,56 +210,37 @@ def main():
         
         with col_graph:
             st.subheader("Визуализация графа")
-            
-            try:
-                html_viz = create_graph_visualization(
-                    nodes=st.session_state.display_graph["nodes"],
-                    edges=st.session_state.display_graph["edges"],
-                    node_filters=node_filters,
-                    edge_weight_thresholds=edge_weight_thresholds,
-                    binary_edge_filters=binary_edge_filters
-                )
-                st.components.v1.html(html_viz, height=550, scrolling=False)
-            except Exception as e:
-                st.error(f"Ошибка визуализации: {str(e)}")
-            
+            # данные для agraph
+            agraph_nodes = [Node(id=n["id"], label=n["label"]) for n in st.session_state.display_graph["nodes"]]
+            agraph_edges = [Edge(source=e["source"], target=e["target"], label=e.get("type", "")) for e in st.session_state.display_graph["edges"]]
+            config = Config(height=550, width=900, directed=True, nodeHighlightBehavior=True, highlightColor="#F7A7A6", collapsible=True)
+            selected = agraph(
+                nodes=agraph_nodes,
+                edges=agraph_edges,
+                config=config
+            )
+            if selected:
+                node_id = selected["id"] if isinstance(selected, dict) else selected
+                
+                node_map = {n["id"]: n["label"] for n in st.session_state.display_graph["nodes"]}
+                
+                if node_id in node_map:
+                    toggle_node(node_id, node_map[node_id])
+                    st.session_state.display_graph = merge_graphs(
+                        st.session_state.graph_data["nodes"],
+                        st.session_state.graph_data["edges"],
+                        st.session_state.expanded_nodes,
+                        st.session_state.subgraphs
+                    )
+                    st.rerun()
             st.divider()
-            st.subheader("Расширить узел")
-            
-            tech_nodes = [n for n in st.session_state.display_graph["nodes"] ]
-            
-            if tech_nodes:
-                node_clean = {n["id"]: n["label"] for n in tech_nodes}
-                node_display = {n["id"]: f"{n['label']}" for n in tech_nodes}
-                
-                selected_id = st.selectbox(
-                    "Выберите узел:",
-                    options=list(node_clean.keys()),
-                    format_func=lambda x: node_display[x]
-                )
-                
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1:
-                    if st.button("Расширить / Свернуть", type="primary"):
-                        if selected_id:
-                            toggle_node(selected_id, node_clean[selected_id])
-                        
-                            st.session_state.display_graph = merge_graphs(
-                                st.session_state.graph_data["nodes"],
-                                st.session_state.graph_data["edges"],
-                                st.session_state.expanded_nodes,
-                                st.session_state.subgraphs
-                            )
-                            st.rerun()
-                
-                with col_btn2:
-                    if st.button("Сбросить расширения"):
-                        st.session_state.expanded_nodes = set()
-                        st.session_state.subgraphs = {}
-                        st.session_state.display_graph = st.session_state.graph_data
-                        st.rerun()
-            else:
-                st.info("Нет узлов типа 'technology' для расширения.")
+            col_btn = st.columns(1)[0]
+            with col_btn:
+                if st.button("Сбросить расширения"):
+                    st.session_state.expanded_nodes = set()
+                    st.session_state.subgraphs = {}
+                    st.session_state.display_graph = st.session_state.graph_data
+                    st.rerun()
         
         # отчет
         st.divider()

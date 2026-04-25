@@ -1,5 +1,6 @@
 from pyvis.network import Network
 from config import NODE_COLORS, EDGE_COLORS, DASHED_EDGE_TYPES
+from streamlit.components.v1 import html as st_html
 
 def get_node_color(node_type: str) -> str:
     return NODE_COLORS.get(node_type, "#9E9E9E")
@@ -12,7 +13,8 @@ def create_graph_visualization(
     edges: list, 
     node_filters: list, 
     edge_weight_thresholds: dict,
-    binary_edge_filters: dict = None
+    binary_edge_filters: dict = None,
+    on_click_node: str = None
 ) -> str:
     """Создаёт HTML-визуализацию графа с фильтрацией."""
     if binary_edge_filters is None:
@@ -75,5 +77,20 @@ def create_graph_visualization(
         "interaction": {"hover": true}
     }
     """)
-    
-    return net.generate_html()
+
+    # js-обработчик клика по узлу
+    custom_js = '''
+    <script type="text/javascript">
+    var network = window.networks && window.networks[Object.keys(window.networks)[0]];
+    if (network) {
+        network.on("click", function(params) {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                window.parent.postMessage({type: 'NODE_CLICK', nodeId: nodeId}, '*');
+            }
+        });
+    }
+    </script>
+    '''
+    html = net.generate_html() + custom_js
+    return html
