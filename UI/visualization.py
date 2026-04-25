@@ -1,96 +1,121 @@
-from pyvis.network import Network
-from config import NODE_COLORS, EDGE_COLORS, DASHED_EDGE_TYPES
-from streamlit.components.v1 import html as st_html
+from streamlit_agraph import Node, Edge, Config
+
+from config import (
+    NODE_COLORS,
+    EDGE_COLORS,
+    DASHED_EDGE_TYPES
+)
+
 
 def get_node_color(node_type: str) -> str:
     return NODE_COLORS.get(node_type, "#9E9E9E")
 
+
 def get_edge_color(edge_type: str) -> str:
     return EDGE_COLORS.get(edge_type, "#9E9E9E")
 
+
+def get_edge_width(weight: float) -> float:
+    if weight is None:
+        return 2
+    return max(1, weight * 5)
+
+
 def create_graph_visualization(
-    nodes: list, 
-    edges: list, 
-    node_filters: list, 
+    nodes: list,
+    edges: list,
+    node_filters: list,
     edge_weight_thresholds: dict,
-    binary_edge_filters: dict = None,
-    on_click_node: str = None
-) -> str:
-    """Создаёт HTML-визуализацию графа с фильтрацией."""
+    binary_edge_filters: dict = None
+):
+    """
+    Создаёт структуру для streamlit-agraph (nodes, edges, config)
+    """
+
     if binary_edge_filters is None:
         binary_edge_filters = {}
 
-    filtered_nodes = [n for n in nodes if n["type"] in node_filters]
-    filtered_node_ids = {n["id"] for n in filtered_nodes}
-    
-    filtered_edges = []
-    for e in edges:
-        if e["type"] in binary_edge_filters and not binary_edge_filters[e["type"]]:
-            continue
-        if e["source"] not in filtered_node_ids or e["target"] not in filtered_node_ids:
-            continue
-        min_weight = edge_weight_thresholds.get(e["type"], 0.0)
-        if e["weight"] >= min_weight:
-            filtered_edges.append(e)
-    
-    net = Network(
-        height="550px", 
-        width="100%", 
-        bgcolor="#222222", 
-        font_color="white",
-        notebook=False
-    )
-    
-    for node in filtered_nodes:
-        net.add_node(
-            node["id"], 
-            label=node["label"], 
-            title=f"{node['type']}: {node['label']}",
-            color=get_node_color(node["type"]),
-            size=25
-        )
-    
-    for edge in filtered_edges:
-        net.add_edge(
-            edge["source"], 
-            edge["target"],
-            title=f"{edge['type']} (вес: {edge['weight']})",
-            width=edge["weight"] * 4,  
-            color=get_edge_color(edge["type"]),
-            dashes=edge["type"] in DASHED_EDGE_TYPES
-        )
-    
-    net.set_options("""
-    {
-        "physics": {
-            "forceAtlas2Based": {
-                "gravitationalConstant": -50,
-                "centralGravity": 0.01,
-                "springLength": 100,
-                "springConstant": 0.08
-            },
-            "maxVelocity": 146,
-            "solver": "forceAtlas2Based",
-            "timestep": 0.35,
-            "stabilization": {"enabled": true, "iterations": 100}
-        },
-        "interaction": {"hover": true}
-    }
-    """)
+    filtered_nodes = [
+        n for n in nodes
+        if n["type"] in node_filters
+    ]
 
-    # js-обработчик клика по узлу
-    custom_js = '''
-    <script type="text/javascript">
-    var network = window.networks && window.networks[Object.keys(window.networks)[0]];
-    if (network) {
-        network.on("click", function(params) {
-            if (params.nodes.length > 0) {
-                const nodeId = params.nodes[0];
-                window.parent.postMessage({type: 'NODE_CLICK', nodeId: nodeId}, '*');
-            }
-        });
-    }
-    </script>
-    '''
-    html = net.generate_html() + custom_js
-    return html
+    filtered_node_ids = {n["id"] for n in filtered_nodes}
+
+    filtered_edges = []
+
+    for e in edges:
+
+        edge_type = e.get("type")
+        weight = e.get("weight", 1)
+
+        if edge_type in binary_edge_filters:
+            if not binary_edge_filters[edge_type]:
+                continue
+
+        if e["source"] not in filtered_node_ids:
+            continue
+
+        if e["target"] not in filtered_node_ids:
+            continue
+
+        min_weight = edge_weight_thresholds.get(edge_type, 0.0)
+
+        if weight < min_weight:
+            continue
+
+        filtered_edges.append(e)
+
+    agraph_nodes = []
+
+    for n in filtered_nodes:
+        agraph_nodes.append(
+            Node(
+                id=n["id"],
+                label=n["label"],
+                size=25,
+                color=get_node_color(n["type"]),
+                font={"color": "white", "size": 12},
+                title="Раскрыть"
+            )
+        )
+
+    agraph_edges = []
+
+    for e in filtered_edges:
+
+        edge_type = e.get("type")
+        weight = e.get("weight", 1)
+
+        agraph_edges.append(
+            Edge(
+                source=e["source"],
+                target=e["target"],
+                color=get_edge_color(edge_type),
+                width=get_edge_width(weight),
+                dashes=edge_type in DASHED_EDGE_TYPES,
+                title=f"{edge_type} (вес: {weight})"
+            )
+        )
+
+    config = Config(
+        height=550,
+        width="100%",
+        directed=True,
+
+        nodeHighlightBehavior=True,
+        highlightColor="#F7A7A6",
+
+        collapsible=True,
+        physics=True,
+
+        node={
+            "font": {"size": 12}
+        },
+
+        edges={
+            "smooth": True
+        }
+    )
+
+    return agraph_nodes, agraph_edges, config

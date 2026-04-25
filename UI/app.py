@@ -4,26 +4,8 @@ import pandas as pd
 from config import NODE_TYPE_FILTERS, EDGE_TYPES, EDGE_TYPE_NAMES, WEIGHTED_EDGE_TYPES, BINARY_EDGE_TYPES
 from services import BackendClient, NotFoundError, BackendError
 from report_generator import ReportGenerator
-from streamlit_agraph import agraph, Node, Edge, Config
-
-from config import (
-    NODE_COLORS,
-    EDGE_COLORS,
-    DASHED_EDGE_TYPES
-)
-def get_node_color(node_type: str) -> str:
-    return NODE_COLORS.get(node_type, "#9E9E9E")
-
-
-def get_edge_color(edge_type: str) -> str:
-    return EDGE_COLORS.get(edge_type, "#9E9E9E")
-
-
-def get_edge_width(weight: float) -> float:
-    """Толщина ребра по весу."""
-    if weight is None:
-        return 2
-    return max(1, weight * 5)
+from streamlit_agraph import agraph
+from visualization import create_graph_visualization
 
 #логика расширения графв
 def merge_graphs(base_nodes, base_edges, expanded_ids, subgraphs):
@@ -229,110 +211,24 @@ def main():
         
         with col_graph:
             st.subheader("Визуализация графа")
-            filtered_nodes = [
-                n for n in st.session_state.display_graph["nodes"]
-                if n["type"] in node_filters
-            ]
-
-            filtered_node_ids = {n["id"] for n in filtered_nodes}
-
-            filtered_edges = []
-
-            for e in st.session_state.display_graph["edges"]:
-
-                edge_type = e.get("type")
-
-                if edge_type in binary_edge_filters:
-                    if not binary_edge_filters[edge_type]:
-                        continue
-
-                if e["source"] not in filtered_node_ids:
-                    continue
-
-                if e["target"] not in filtered_node_ids:
-                    continue
-
-                min_weight = edge_weight_thresholds.get(edge_type, 0.0)
-
-                weight = e.get("weight", 1)
-
-                if weight < min_weight:
-                    continue
-
-                filtered_edges.append(e)
 
 
-            agraph_nodes = []
-
-            for n in filtered_nodes:
-
-                node_color = get_node_color(n["type"])
-
-                agraph_nodes.append(
-                    Node(
-                        id=n["id"],
-                        label=n["label"],
-                        size=25,
-                        color=node_color,
-                        font={"color": "white"}
-                    )
-                )
-
-
-            agraph_edges = []
-
-            for e in filtered_edges:
-
-                edge_type = e.get("type")
-
-                weight = e.get("weight", 1)
-
-                edge_color = get_edge_color(edge_type)
-
-                width = get_edge_width(weight)
-
-                is_dashed = edge_type in DASHED_EDGE_TYPES
-
-                agraph_edges.append(
-                    Edge(
-                        source=e["source"],
-                        target=e["target"],
-                        color=edge_color,
-                        width=width,
-                        dashes=is_dashed,
-                        title=f"{edge_type} (вес: {weight})"
-                    )
-                )
-            config = Config(
-                height=550,
-                width="100%",
-                directed=True,
-
-                nodeHighlightBehavior=True,
-                highlightColor="#F7A7A6",
-
-                collapsible=True,
-                physics=True,
-
-                node={
-                    "font": {"size": 12}
-                },
-
-                edges={   
-                    "smooth": True
-                }
+            agraph_nodes, agraph_edges, config = create_graph_visualization(
+                nodes=st.session_state.display_graph["nodes"],
+                edges=st.session_state.display_graph["edges"],
+                node_filters=node_filters,
+                edge_weight_thresholds=edge_weight_thresholds,
+                binary_edge_filters=binary_edge_filters
             )
+
             selected = agraph(
                 nodes=agraph_nodes,
                 edges=agraph_edges,
                 config=config
             )
-
             if selected:
-                # Извлекаем ID (agraph может вернуть строку или словарь в зависимости от версии)
                 node_id = selected["id"] if isinstance(selected, dict) else selected
 
-                # ПРОВЕРКА: Если этот узел был нажат в прошлый раз, ничего не делаем
                 if st.session_state.get("last_click") != node_id:
                     node_map = {
                         n["id"]: n["label"]
@@ -340,7 +236,6 @@ def main():
                     }
 
                     if node_id in node_map:
-                        # Сохраняем ID текущего клика, чтобы не обрабатывать его повторно при rerun
                         st.session_state.last_click = node_id
                         
                         toggle_node(node_id, node_map[node_id])
@@ -354,10 +249,8 @@ def main():
 
                         st.rerun()
             else:
-                # Если клика нет (например, нажали на пустое место), сбрасываем last_click
                 st.session_state.last_click = None
         # отчет
-        st.divider()
         st.subheader("Параметры отчёта")
         
         col_report1, col_report2, col_report3 = st.columns([1, 1, 1], gap="medium")
@@ -388,35 +281,134 @@ def main():
             if st.button("Скачать отчет (PDF)", use_container_width=True, type="primary"):
                 try:
                     report_gen = ReportGenerator()
-                    
+
                     if not selected_node_ids:
                         nodes_for_report = [n for n in st.session_state.graph_data["nodes"] if n.get("type") in node_filters]
                         node_ids_for_report = None
+                        selected_node_set = {n.get('id') for n in nodes_for_report}
                     else:
                         nodes_for_report = st.session_state.graph_data["nodes"]
                         node_ids_for_report = selected_node_ids
-                    
+                        selected_node_set = set(selected_node_ids)
+
+                    all_edges = st.session_state.graph_data.get("edges", [])
                     edge_types_for_report = selected_edge_types if selected_edge_types else None
-                    
-                    pdf_buffer = report_gen.generate_pdf(
-                        nodes=nodes_for_report,
-                        edges=st.session_state.graph_data.get("edges", []),
-                        selected_nodes=node_ids_for_report,
-                        selected_edge_types=edge_types_for_report,
-                        technology_name=st.session_state.search_query
-                    )
-                    
-                    st.download_button(
-                        label="Скачать PDF",
-                        data=pdf_buffer,
-                        file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
-                        mime="application/pdf",
-                        key="download_report"
-                    )
-                    st.success("Отчет готов!")
+                    edges_for_report = []
+                    for e in all_edges:
+                        if e.get('source') not in selected_node_set and e.get('target') not in selected_node_set:
+                            continue
+                        if edge_types_for_report and e.get('type') not in edge_types_for_report:
+                            continue
+                        edges_for_report.append(e)
+
+                    backend = BackendClient()
+                    payload = {
+                        "nodes": nodes_for_report,
+                        "edges": edges_for_report,
+                        "meta": {"technology": st.session_state.search_query}
+                    }
+
+                    try:
+                        resp = backend.generate_report(payload)
+                    except Exception as be:
+                        st.warning(f"Не удалось обратиться к backend: {str(be)} — сгенерируем отчет локально.")
+                        pdf_buffer = report_gen.generate_pdf(
+                            nodes=nodes_for_report,
+                            edges=edges_for_report,
+                            selected_nodes=node_ids_for_report,
+                            selected_edge_types=edge_types_for_report,
+                            technology_name=st.session_state.search_query
+                        )
+                        st.download_button(
+                            label="Скачать PDF",
+                            data=pdf_buffer,
+                            file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
+                            mime="application/pdf",
+                            key="download_report_local"
+                        )
+                        st.success("Отчет готов")
+                   
+                    content_type = resp.headers.get('content-type', '') if resp is not None else ''
+                    if resp.status_code == 200 and content_type.startswith('application/json'):
+                        try:
+                            resp_json = resp.json()
+                        except Exception:
+                            st.error("Backend вернул некорректный JSON. Выполняю локальную генерацию.")
+                            resp_json = None
+
+                        if resp_json and isinstance(resp_json, dict) and 'nodes' in resp_json and 'edges' in resp_json:
+                            pdf_buffer = report_gen.generate_pdf(
+                                nodes=resp_json['nodes'],
+                                edges=resp_json['edges'],
+                                selected_nodes=node_ids_for_report,
+                                selected_edge_types=edge_types_for_report,
+                                technology_name=st.session_state.search_query
+                            )
+                            st.download_button(
+                                label="Скачать PDF",
+                                data=pdf_buffer,
+                                file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
+                                mime="application/pdf",
+                                key="download_report_backend_json"
+                            )
+                            st.success("Отчет готов")
+                        elif 'report_markdown' in resp_json:
+                            pdf_buffer = report_gen.generate_pdf(
+                                nodes=nodes_for_report,
+                                edges=edges_for_report,
+                                selected_nodes=node_ids_for_report,
+                                selected_edge_types=edge_types_for_report,
+                                technology_name=st.session_state.search_query,
+                                additional_content=resp_json['report_markdown']
+                            )
+                            st.download_button(
+                                label="Скачать PDF",
+                                data=pdf_buffer,
+                                file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
+                                mime="application/pdf",
+                                key="download_report_with_backend_content"
+                            )
+                            st.success("Отчет готов")
+                        else:
+                            st.error("Backend вернул неожиданный формат ответа. Отображаю содержимое ответа в отчете.")
+                            st.markdown("### Ответ от Backend")
+                            st.markdown(f"```json\n{resp.text}\n```")
+
+                            pdf_buffer = report_gen.generate_pdf(
+                                nodes=nodes_for_report,
+                                edges=edges_for_report,
+                                selected_nodes=node_ids_for_report,
+                                selected_edge_types=edge_types_for_report,
+                                technology_name=st.session_state.search_query
+                            )
+                            st.download_button(
+                                label="Скачать PDF",
+                                data=pdf_buffer,
+                                file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
+                                mime="application/pdf",
+                                key="download_report_unexpected"
+                            )
+                    else:
+                        st.warning(f"Backend вернул статус {resp.status_code}. Выполняю локальную генерацию.")
+                        pdf_buffer = report_gen.generate_pdf(
+                            nodes=nodes_for_report,
+                            edges=edges_for_report,
+                            selected_nodes=node_ids_for_report,
+                            selected_edge_types=edge_types_for_report,
+                            technology_name=st.session_state.search_query
+                        )
+                        st.download_button(
+                            label="Скачать PDF",
+                            data=pdf_buffer,
+                            file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
+                            mime="application/pdf",
+                            key="download_report_error_fallback"
+                        )
+
                 except Exception as e:
                     st.error(f"Ошибка при формировании отчета: {str(e)}")
                     st.info("Убедитесь, что установлен пакет reportlab: pip install reportlab")
+    
     
     else:
         st.divider()
@@ -429,6 +421,9 @@ def main():
             st.info("**2. Настройте фильтры**\n\nИспользуйте ползунки для настройки видимости типов связей.\n\n*0 = скрыть, 1 = показать полностью*")
         with col3:
             st.info("**3. Анализируйте граф**\n\nИзучите связи между технологиями, компаниями и лицензиями.\n\n*Толщина линии = вес связи*")
+        
+    
+
 
 
 if __name__ == "__main__":
