@@ -6,6 +6,24 @@ from services import BackendClient, NotFoundError, BackendError
 from report_generator import ReportGenerator
 from streamlit_agraph import agraph, Node, Edge, Config
 
+from config import (
+    NODE_COLORS,
+    EDGE_COLORS,
+    DASHED_EDGE_TYPES
+)
+def get_node_color(node_type: str) -> str:
+    return NODE_COLORS.get(node_type, "#9E9E9E")
+
+
+def get_edge_color(edge_type: str) -> str:
+    return EDGE_COLORS.get(edge_type, "#9E9E9E")
+
+
+def get_edge_width(weight: float) -> float:
+    """Толщина ребра по весу."""
+    if weight is None:
+        return 2
+    return max(1, weight * 5)
 
 #логика расширения графв
 def merge_graphs(base_nodes, base_edges, expanded_ids, subgraphs):
@@ -87,7 +105,6 @@ def toggle_node(node_id, clean_label):
                     "edges": sub.get("edges", [])
                 }
                 st.session_state.expanded_nodes.add(node_id)
-                st.success(f"Добавлено узлов: {len(sub.get('nodes', []))}")
         except Exception as e:
             st.error(f"Ошибка: {e}")
 
@@ -210,10 +227,100 @@ def main():
         
         with col_graph:
             st.subheader("Визуализация графа")
-            # данные для agraph
-            agraph_nodes = [Node(id=n["id"], label=n["label"]) for n in st.session_state.display_graph["nodes"]]
-            agraph_edges = [Edge(source=e["source"], target=e["target"], label=e.get("type", "")) for e in st.session_state.display_graph["edges"]]
-            config = Config(height=550, width=900, directed=True, nodeHighlightBehavior=True, highlightColor="#F7A7A6", collapsible=True)
+            filtered_nodes = [
+                n for n in st.session_state.display_graph["nodes"]
+                if n["type"] in node_filters
+            ]
+
+            filtered_node_ids = {n["id"] for n in filtered_nodes}
+
+            filtered_edges = []
+
+            for e in st.session_state.display_graph["edges"]:
+
+                edge_type = e.get("type")
+
+                if edge_type in binary_edge_filters:
+                    if not binary_edge_filters[edge_type]:
+                        continue
+
+                if e["source"] not in filtered_node_ids:
+                    continue
+
+                if e["target"] not in filtered_node_ids:
+                    continue
+
+                min_weight = edge_weight_thresholds.get(edge_type, 0.0)
+
+                weight = e.get("weight", 1)
+
+                if weight < min_weight:
+                    continue
+
+                filtered_edges.append(e)
+
+
+            agraph_nodes = []
+
+            for n in filtered_nodes:
+
+                node_color = get_node_color(n["type"])
+
+                agraph_nodes.append(
+                    Node(
+                        id=n["id"],
+                        label=n["label"],
+                        size=25,
+                        color=node_color,
+                        font={"color": "white"}
+                    )
+                )
+
+
+            agraph_edges = []
+
+            for e in filtered_edges:
+
+                edge_type = e.get("type")
+
+                weight = e.get("weight", 1)
+
+                edge_color = get_edge_color(edge_type)
+
+                width = get_edge_width(weight)
+
+                is_dashed = edge_type in DASHED_EDGE_TYPES
+
+                agraph_edges.append(
+                    Edge(
+                        source=e["source"],
+                        target=e["target"],
+                        color=edge_color,
+                        width=width,
+                        dashes=is_dashed,
+                        title=f"{edge_type} (вес: {weight})"
+                    )
+                )
+            config = Config(
+                height=550,
+                width="100%",
+                directed=True,
+
+                nodeHighlightBehavior=True,
+                highlightColor="#F7A7A6",
+
+                collapsible=True,
+
+                physics=True,
+
+                node={
+                    "font": {"size": 12}
+                },
+
+                edge={
+                    "smooth": True
+                }
+            )
             selected = agraph(
                 nodes=agraph_nodes,
                 edges=agraph_edges,
