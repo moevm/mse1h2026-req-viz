@@ -125,6 +125,8 @@ def main():
         st.session_state.expanded_nodes = set()
     if 'subgraphs' not in st.session_state:
         st.session_state.subgraphs = {}
+    if "last_click" not in st.session_state:
+        st.session_state.last_click = None
     
     st.subheader("Поиск технологии")
 
@@ -310,14 +312,13 @@ def main():
                 highlightColor="#F7A7A6",
 
                 collapsible=True,
-
                 physics=True,
 
                 node={
                     "font": {"size": 12}
                 },
 
-                edge={
+                edges={   
                     "smooth": True
                 }
             )
@@ -326,29 +327,35 @@ def main():
                 edges=agraph_edges,
                 config=config
             )
+
             if selected:
+                # Извлекаем ID (agraph может вернуть строку или словарь в зависимости от версии)
                 node_id = selected["id"] if isinstance(selected, dict) else selected
-                
-                node_map = {n["id"]: n["label"] for n in st.session_state.display_graph["nodes"]}
-                
-                if node_id in node_map:
-                    toggle_node(node_id, node_map[node_id])
-                    st.session_state.display_graph = merge_graphs(
-                        st.session_state.graph_data["nodes"],
-                        st.session_state.graph_data["edges"],
-                        st.session_state.expanded_nodes,
-                        st.session_state.subgraphs
-                    )
-                    st.rerun()
-            st.divider()
-            col_btn = st.columns(1)[0]
-            with col_btn:
-                if st.button("Сбросить расширения"):
-                    st.session_state.expanded_nodes = set()
-                    st.session_state.subgraphs = {}
-                    st.session_state.display_graph = st.session_state.graph_data
-                    st.rerun()
-        
+
+                # ПРОВЕРКА: Если этот узел был нажат в прошлый раз, ничего не делаем
+                if st.session_state.get("last_click") != node_id:
+                    node_map = {
+                        n["id"]: n["label"]
+                        for n in st.session_state.display_graph["nodes"]
+                    }
+
+                    if node_id in node_map:
+                        # Сохраняем ID текущего клика, чтобы не обрабатывать его повторно при rerun
+                        st.session_state.last_click = node_id
+                        
+                        toggle_node(node_id, node_map[node_id])
+
+                        st.session_state.display_graph = merge_graphs(
+                            st.session_state.graph_data["nodes"],
+                            st.session_state.graph_data["edges"],
+                            st.session_state.expanded_nodes,
+                            st.session_state.subgraphs
+                        )
+
+                        st.rerun()
+            else:
+                # Если клика нет (например, нажали на пустое место), сбрасываем last_click
+                st.session_state.last_click = None
         # отчет
         st.divider()
         st.subheader("Параметры отчёта")
