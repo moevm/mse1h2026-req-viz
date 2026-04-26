@@ -67,6 +67,20 @@ class WikidataRestClient:
             print(f"Ошибка получения деталей {tech_name}: {e}")
             return None
 
+    def get_sitelink(self, item_id: str) -> Optional[str]:
+        """Получает название статьи Wikipedia по QID."""
+        try:
+            response = self.session.get(
+                f"{self.base_url}/entities/items/{item_id}/sitelinks"
+            )
+            response.raise_for_status()
+            sitelinks = response.json()
+            enwiki = sitelinks.get("enwiki", {})
+            return enwiki.get("title")
+        except Exception as e:
+            print(f"Ошибка получения sitelink для {item_id}: {e}")
+            return None
+
     def get_related_entities(
         self, prop_pid: str, tech_qid: str
     ) -> List[Dict[str, str]]:
