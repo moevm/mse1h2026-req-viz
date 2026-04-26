@@ -57,6 +57,7 @@ def main():
     if search_button or (search_query and st.session_state.search_query != search_query):
         st.session_state.search_query = search_query
         technologies = [t.strip() for t in search_query.split(",") if t.strip()]
+        technologies = list({t.lower(): t for t in technologies}.values())
         
         if not search_query.strip():
             st.warning("Пожалуйста, введите название технологии")
