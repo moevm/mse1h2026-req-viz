@@ -1,7 +1,8 @@
 links:
   wikidata_rest_endpoint: "https://www.wikidata.org/w/rest.php/wikibase/v1"
   wikidata_sparql_endpoint: "https://query.wikidata.org/sparql"
-
+  dbpedia_sparql_endpoint: "https://dbpedia.org/sparql"
+  dbpedia_resource_base: "http://dbpedia.org/resource"
 search:
   language: "en"
   keywords:
