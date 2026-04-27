@@ -34,7 +34,7 @@ class ParserWrapper:
         nodes = [
             Node(
                 id=node["id"],
-                label=node["name"],
+                label=node["name"].lower(),
                 type=node["type"].replace("_", " ").title().replace(" ", ""),
             )
             for node in raw_graph.get("nodes", [])
