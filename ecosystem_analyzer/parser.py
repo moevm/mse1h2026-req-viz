@@ -31,13 +31,17 @@ class ParserWrapper:
     def _to_api_format(raw_graph: dict) -> GraphResponse:
         """Преобразует граф от парсера (parser/parser) → GraphResponse (ecosystem_analyzer.models).
         Результат является унифицированным форматом для взаимодействия всех 4 модулей системы."""
+        raw_nodes = raw_graph.get("nodes", [])
+        raw_edges = raw_graph.get("edges", [])
+        logger.info(f"Converting graph: get {len(raw_nodes)} nodes and {len(raw_edges)} edges from parser.")
+
         nodes = [
             Node(
                 id=node["id"],
                 label=node["name"].lower(),
                 type=node["type"].replace("_", " ").title().replace(" ", ""),
             )
-            for node in raw_graph.get("nodes", [])
+            for node in raw_nodes
         ]
 
         edges = [
@@ -47,7 +51,7 @@ class ParserWrapper:
                 type=edge["predicate"].upper().replace(" ", "_"),
                 weight=1.0,  # Парсер не возвращает веса, ставим дефолт
             )
-            for edge in raw_graph.get("edges", [])
+            for edge in raw_edges
         ]
 
         return GraphResponse(
