@@ -12,10 +12,9 @@ from ecosystem_analyzer.parser import ParserWrapper
 
 MAX_DEPTH = 10 # Max depth of graph response TODO: remove or replace to env file
 MAX_NODES = 100 # Max nodes to return
-ALLOWED_REL_TYPES = { #TODO: replace to env file, for parser/parser also or remove from everywhere
+ALLOWED_REL_TYPES = [ #TODO: replace to env file, for parser/parser also or remove from everywhere
     "uses", "used by", "based on", "inspired by", "creator", "developer", "programmed in", "owned by"
-}
-
+]
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
@@ -90,10 +89,9 @@ async def get_graph(
     logger.info(f"Requesting graph for: {technology} (depth={depth}, limit={limit})")
     loop = asyncio.get_event_loop()
 
-    rel_types_list = ALLOWED_REL_TYPES
-    if rel_types:
-        rel_types_list = rel_types.split(",")
-    rel_types=[x.upper().replace(" ", "_") for x in rel_types_list]
+    # TODO: delete that
+    rel_types_lower = ALLOWED_REL_TYPES
+    rel_types_upper=[x.upper().replace(" ", "_") for x in rel_types_lower]
 
     # Search in DB
     graph = await loop.run_in_executor(executor,
@@ -101,7 +99,7 @@ async def get_graph(
                                        technology,
                                        depth,
                                        limit,
-                                       rel_types)
+                                       rel_types_upper)
 
     if graph:
         logger.info(f"Found '{technology}' in database ({len(graph.nodes)} nodes)")
@@ -113,7 +111,7 @@ async def get_graph(
         graph = await loop.run_in_executor(executor,
                                            parser.parse_graph,
                                            technology,
-                                           rel_types_list)
+                                           rel_types_lower)
     except Exception as e:
         logger.error(f"Parser error for '{technology}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Parser error: {str(e)}")
@@ -134,10 +132,11 @@ async def get_graph(
         logger.error(f"Failed to save graph for '{technology}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+    # Возвращаем именно тот граф, который сохранили в бд
     final_graph = await loop.run_in_executor(
         executor,
         db.get_graph_by_technology,
-        technology, depth, limit, rel_types_list
+        technology, depth, limit, rel_types_upper
     )
 
     return final_graph
