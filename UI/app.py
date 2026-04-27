@@ -114,17 +114,33 @@ def main():
 
         all_nodes = []
         all_edges = []
-        seen_node_labels = set()
+        seen_node_labels = set() # для проверки дубликатов узлов
+        id_mapping = {} # словарь для замены source и target в ребрах при объединении одинаковых узлов
 
         for tech_name, graph_data in st.session_state.loaded_graphs.items():
             # Объединение всех полученных графов в один
             if not graph_data: continue
 
-            for node in graph_data.get("nodes", []):
+            nodes = graph_data.get("nodes", [])
+            edges = graph_data.get("edges", [])
+
+            for node in nodes:
                 node_label = node.get("label")
-                if node_label not in seen_node_labels:
-                    all_nodes.append(node)
+                if node_label and node_label not in seen_node_labels:
                     seen_node_labels.add(node_label)
+                    all_nodes.append(node)
+                    id_mapping[node["id"]] = node["id"]
+                else:
+                    canonical_node = next((n for n in all_nodes if n.get("label") == node_label), None)
+                    if canonical_node:
+                        id_mapping[node["id"]] = canonical_node["id"]
+
+            for edge in edges:
+                new_edge = edge.copy()
+                # Меняем source и target на новые ID из словаря
+                new_edge["source"] = id_mapping.get(edge["source"], edge["source"])
+                new_edge["target"] = id_mapping.get(edge["target"], edge["target"])
+                all_edges.append(new_edge)
 
             all_edges.extend(graph_data.get("edges", []))
 

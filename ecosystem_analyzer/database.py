@@ -153,7 +153,7 @@ class Database:
         """Преобразует SubgraphResponse (graph.models) → GraphResponse (ecosystem_analyzer.models).
         Результат является унифицированным форматом для взаимодействия всех 4 модулей системы."""
         nodes = [
-            Node(id=node.uid, label=node.name, type=node.label)
+            Node(id=node.uid, label=node.name.lower(), type=node.label)
             for node in subgraph.nodes
         ]
 
