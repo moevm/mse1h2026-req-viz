@@ -4,7 +4,19 @@ from config import NODE_TYPE_FILTERS, EDGE_TYPES, EDGE_TYPE_NAMES, WEIGHTED_EDGE
 from services import BackendClient, NotFoundError, BackendError
 from visualization import create_graph_visualization
 from report_generator import ReportGenerator
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
+executor = ThreadPoolExecutor(max_workers=10)
+
+def fetch_single_graph(backend, tech_name: str):
+    """Функция для выполнения в отдельном потоке"""
+    try:
+        graph = backend.get_graph(tech_name.strip())
+        return {"name": tech_name.strip(), "data": graph, "error": None}
+    except NotFoundError:
+        return {"name": tech_name.strip(), "data": None, "error": "not_found"}
+    except Exception as e:
+        return {"name": tech_name.strip(), "data": None, "error": str(e)}
 
 def main():
     """Главная функция Streamlit приложения для визуализации графов технологий."""
@@ -14,9 +26,9 @@ def main():
     )
     
     st.title("Визуализация технологических зависимостей")
-    
-    if 'graph_data' not in st.session_state:
-        st.session_state.graph_data = None
+
+    if 'loaded_graphs' not in st.session_state:
+        st.session_state.loaded_graphs = {} # Ключ: имя технологии, Значение: данные графа
     if 'search_query' not in st.session_state:
         st.session_state.search_query = ""
     
@@ -44,19 +56,45 @@ def main():
     
     if search_button or (search_query and st.session_state.search_query != search_query):
         st.session_state.search_query = search_query
+        technologies = [t.strip() for t in search_query.split(",") if t.strip()]
+        technologies = list({t.lower(): t for t in technologies}.values())
         
         if not search_query.strip():
             st.warning("Пожалуйста, введите название технологии")
             st.session_state.graph_data = None
         else:
             backend = BackendClient()
+            progress_bar = st.progress(0)
+            status_text = st.empty()
             
             try:
                 with st.spinner("Построение графа зависимостей..."):
-                    graph = backend.get_graph(search_query)
-                    st.session_state.graph_data = graph
-                    st.success(f"Граф успешно получен для '{search_query}'")
-                    st.rerun()
+                    future_to_tech = {executor.submit(fetch_single_graph, backend, tech): tech for tech in technologies}
+
+                    completed_count = 0
+                    total_count = len(technologies)
+
+                    for future in as_completed(future_to_tech):
+                        tech_name = future_to_tech[future]
+                        try:
+                            result = future.result()
+
+                            if result["error"]:
+                                if result["error"] == "not_found":
+                                    st.error(f"Технология '{result['name']}' не найдена.")
+                                else:
+                                    st.error(f"Ошибка при загрузке '{result['name']}': {result['error']}")
+                            else:
+                                # Сохраняем успешный результат в состояние
+                                st.session_state.loaded_graphs[result["name"]] = result["data"]
+                                st.success(f"Граф для '{result['name']}' загружен!")
+
+                        except Exception as exc:
+                            st.error(f"Критическая ошибка для {tech_name}: {exc}")
+
+                        completed_count += 1
+                        progress_bar.progress(completed_count / total_count)
+                        status_text.text(f"Загружено {completed_count} из {total_count}")
             except NotFoundError:
                 st.error(f"Технология '{search_query}' не найдена")
                 st.info("Попробуйте другую технологию или проверьте правописание")
@@ -70,129 +108,150 @@ def main():
             except ValueError as e:
                 st.error(f"Неверный запрос: {str(e)}")
                 st.session_state.graph_data = None
-    
-    if st.session_state.graph_data:
+
+    if st.session_state.loaded_graphs:
         st.divider()
-        col_filters, col_graph = st.columns([1, 3])
-        
+
+        all_nodes = []
+        all_edges = []
+        seen_node_labels = set() # для проверки дубликатов узлов
+        id_mapping = {} # словарь для замены source и target в ребрах при объединении одинаковых узлов
+
+        for tech_name, graph_data in st.session_state.loaded_graphs.items():
+            # Объединение всех полученных графов в один
+            if not graph_data: continue
+
+            nodes = graph_data.get("nodes", [])
+            edges = graph_data.get("edges", [])
+
+            for node in nodes:
+                node_label = node.get("label")
+                if node_label and node_label not in seen_node_labels:
+                    seen_node_labels.add(node_label)
+                    all_nodes.append(node)
+                    id_mapping[node["id"]] = node["id"]
+                else:
+                    canonical_node = next((n for n in all_nodes if n.get("label") == node_label), None)
+                    if canonical_node:
+                        id_mapping[node["id"]] = canonical_node["id"]
+
+            for edge in edges:
+                new_edge = edge.copy()
+                # Меняем source и target на новые ID из словаря
+                new_edge["source"] = id_mapping.get(edge["source"], edge["source"])
+                new_edge["target"] = id_mapping.get(edge["target"], edge["target"])
+                all_edges.append(new_edge)
+
+            all_edges.extend(graph_data.get("edges", []))
+
+        col_filters, col_graph = st.columns([1, 3], gap="large")
+
         with col_filters:
-            st.subheader("Фильтры")
-            
+            st.markdown("**Фильтры связей**")
             edge_weight_thresholds = {}
             binary_edge_filters = {}
-            
+
             if WEIGHTED_EDGE_TYPES:
-                st.markdown("**Минимальный вес связей:**")
                 for edge_type in WEIGHTED_EDGE_TYPES:
                     display_name = EDGE_TYPE_NAMES.get(edge_type, edge_type)
                     threshold = st.slider(
-                        f"{display_name}",
-                        min_value=0.0,
-                        max_value=1.0,
-                        value=1.0,
-                        step=0.1,
-                        key=f"threshold_{edge_type}",
-                        format="%.1f"
+                        f"{display_name}", 0.0, 1.0, 1.0, 0.1,
+                        key=f"thr_{edge_type}_global", format="%.1f"
                     )
                     edge_weight_thresholds[edge_type] = threshold
-                st.divider()
-            
+
+            st.divider()
             if BINARY_EDGE_TYPES:
                 st.markdown("**Показывать связи:**")
                 for edge_type in BINARY_EDGE_TYPES:
                     display_name = EDGE_TYPE_NAMES.get(edge_type, edge_type)
                     is_checked = st.checkbox(
-                        display_name,
-                        value=True,
-                        key=f"binary_{edge_type}"
+                        display_name, value=True, key=f"bin_{edge_type}"
                     )
                     binary_edge_filters[edge_type] = is_checked
-                st.divider()
-            
+            st.divider()
             st.markdown("**Типы узлов:**")
             node_filters = []
             for node_type, label in NODE_TYPE_FILTERS:
                 if st.checkbox(label, value=True, key=f"node_{node_type}"):
                     node_filters.append(node_type)
-        
 
         with col_graph:
-            st.subheader("Визуализация графа")
-            
+            st.markdown("**Визуализация**")
             try:
                 html_viz = create_graph_visualization(
-                    nodes=st.session_state.graph_data["nodes"],
-                    edges=st.session_state.graph_data["edges"],
+                    nodes=all_nodes,
+                    edges=all_edges,
                     node_filters=node_filters,
                     edge_weight_thresholds=edge_weight_thresholds,
                     binary_edge_filters=binary_edge_filters
                 )
-                st.components.v1.html(html_viz, height=550, scrolling=False)
+                st.components.v1.html(html_viz, height=600, scrolling=False)
             except Exception as e:
                 st.error(f"Ошибка визуализации: {str(e)}")
-                st.warning("Попробуйте нажать 'Обновить визуализацию' или перезагрузить страницу.")
-        
+
         st.divider()
-        st.subheader("Параметры отчёта")
-        
-        col_report1, col_report2, col_report3 = st.columns([1, 1, 1], gap="medium")
-        
-        available_nodes = st.session_state.graph_data.get("nodes", [])
-        node_options = {n.get("id"): f"{n.get('label')} ({n.get('type')})" for n in available_nodes}
-        
-        with col_report1:
+        st.subheader("Единый отчет по всем технологиям")
+
+        col_rep1, col_rep2, col_rep3 = st.columns([1, 1, 1], gap="medium")
+
+        # Формируем списки для селекторов из объединенных данных
+        all_node_options = {n["id"]: f"{n.get('label')} ({n.get('type')})" for n in all_nodes}
+
+        with col_rep1:
             selected_node_ids = st.multiselect(
                 "Узлы для отчета",
-                options=list(node_options.keys()),
-                format_func=lambda x: node_options.get(x, x),
-                key="report_nodes",
-                help="Оставьте пусто = все узлы"
+                options=list(all_node_options.keys()),
+                format_func=lambda x: all_node_options.get(x, x),
+                key="rep_nodes_global",
+                help="Пусто = все узлы"
             )
-        
-        with col_report2:
+
+        with col_rep2:
             selected_edge_types = st.multiselect(
-                "Типы связей для отчета",
+                "Типы связей",
                 options=EDGE_TYPES,
                 format_func=lambda x: EDGE_TYPE_NAMES.get(x, x),
-                key="report_edges",
-                help="Оставьте пусто = все типы"
+                key="rep_edges_global",
+                help="Пусто = все типы"
             )
-        
-        with col_report3:
-            st.write("")  
-            if st.button("Скачать отчет (PDF)", use_container_width=True, type="primary"):
+
+        with col_rep3:
+            st.write("")
+            if st.button("Скачать общий PDF", use_container_width=True, type="primary", key="btn_gen_global"):
                 try:
                     report_gen = ReportGenerator()
-                    
+
+                    # Логика фильтрации узлов для отчета
                     if not selected_node_ids:
-                        nodes_for_report = [n for n in st.session_state.graph_data["nodes"] if n.get("type") in node_filters]
+                        nodes_for_report = [n for n in all_nodes if n.get("type") in node_filters]
                         node_ids_for_report = None
                     else:
-                        nodes_for_report = st.session_state.graph_data["nodes"]
+                        nodes_for_report = all_nodes
                         node_ids_for_report = selected_node_ids
-                    
+
                     edge_types_for_report = selected_edge_types if selected_edge_types else None
-                    
+
                     pdf_buffer = report_gen.generate_pdf(
                         nodes=nodes_for_report,
-                        edges=st.session_state.graph_data.get("edges", []),
+                        edges=all_edges,
                         selected_nodes=node_ids_for_report,
                         selected_edge_types=edge_types_for_report,
-                        technology_name=st.session_state.search_query
+                        technology_name="All_Technologies_Report"
                     )
-                    
+
                     st.download_button(
                         label="Скачать PDF",
                         data=pdf_buffer,
-                        file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
+                        file_name="report_all_technologies.pdf",
                         mime="application/pdf",
-                        key="download_report"
+                        key="dl_global"
                     )
-                    st.success(" Отчет готов!")
+                    st.success("Отчет готов!")
                 except Exception as e:
-                    st.error(f"Ошибка при формировании отчета: {str(e)}")
-                    st.info("Убедитесь, что установлен пакет reportlab: pip install reportlab")
-    
+                    st.error(f"Ошибка формирования отчета: {str(e)}")
+
+
     
     else:
         st.divider()

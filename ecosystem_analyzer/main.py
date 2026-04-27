@@ -1,8 +1,10 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor
 import os
 import logging
+import asyncio
 
 from ecosystem_analyzer.models import GraphResponse
 from ecosystem_analyzer.database import Database
@@ -10,10 +12,9 @@ from ecosystem_analyzer.parser import ParserWrapper
 
 MAX_DEPTH = 10 # Max depth of graph response TODO: remove or replace to env file
 MAX_NODES = 100 # Max nodes to return
-ALLOWED_REL_TYPES = { #TODO: replace to env file, for parser/parser also or remove from everywhere
+ALLOWED_REL_TYPES = [ #TODO: replace to env file, for parser/parser also or remove from everywhere
     "uses", "used by", "based on", "inspired by", "creator", "developer", "programmed in", "owned by"
-}
-
+]
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
@@ -23,6 +24,8 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 logger = logging.getLogger(__name__)
+
+executor = ThreadPoolExecutor(max_workers=10)
 
 """ CORS for Streamlit """
 app.add_middleware(
@@ -71,8 +74,6 @@ Get graph by source
     4. Save result to database
     5. Return result to client
 """
-
-
 @app.get("/api/graph", response_model=GraphResponse)
 async def get_graph(
     technology: str = Query(
@@ -86,18 +87,19 @@ async def get_graph(
     ),
 ):
     logger.info(f"Requesting graph for: {technology} (depth={depth}, limit={limit})")
+    loop = asyncio.get_event_loop()
 
-    rel_types_list = ALLOWED_REL_TYPES
-    if rel_types:
-        rel_types_list = rel_types.split(",")
+    # TODO: delete that
+    rel_types_lower = ALLOWED_REL_TYPES
+    rel_types_upper=[x.upper().replace(" ", "_") for x in rel_types_lower]
 
     # Search in DB
-    graph = db.get_graph_by_technology(
-        technology,
-        depth=depth,
-        limit=limit,
-        rel_types=[x.upper().replace(" ", "_") for x in rel_types_list],
-    )
+    graph = await loop.run_in_executor(executor,
+                                       db.get_graph_by_technology,
+                                       technology,
+                                       depth,
+                                       limit,
+                                       rel_types_upper)
 
     if graph:
         logger.info(f"Found '{technology}' in database ({len(graph.nodes)} nodes)")
@@ -106,7 +108,10 @@ async def get_graph(
     # Parse
     logger.info(f"'{technology}' not found in database, calling parser...")
     try:
-        graph = parser.parse_graph(technology, rel_types_list)
+        graph = await loop.run_in_executor(executor,
+                                           parser.parse_graph,
+                                           technology,
+                                           rel_types_lower)
     except Exception as e:
         logger.error(f"Parser error for '{technology}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Parser error: {str(e)}")
@@ -118,18 +123,26 @@ async def get_graph(
     # Save in DB
     logger.info(f"Saving graph for '{technology}' to database...")
     try:
-        db.save_graph(graph, source=technology)
+        await loop.run_in_executor(executor,
+                                   db.save_graph,
+                                   graph,
+                                   technology)
         logger.info(f"Graph saved ({len(graph.nodes)} nodes, {len(graph.edges)} edges)")
     except Exception as e:
         logger.error(f"Failed to save graph for '{technology}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-    return db.get_graph_by_technology(technology, depth=depth, limit=limit)
+    # Возвращаем именно тот граф, который сохранили в бд
+    final_graph = await loop.run_in_executor(
+        executor,
+        db.get_graph_by_technology,
+        technology, depth, limit, rel_types_upper
+    )
+
+    return final_graph
 
 
 """ Entry point to the API """
-
-
 @app.get("/")
 async def root():
     return {

@@ -1,6 +1,8 @@
 from typing import Optional, List, Dict, Any
 from .models import Node, Edge, Statistics, GraphResponse
 from parser.parser import Parser
+import logging
+logger = logging.getLogger(__name__)
 
 
 class ParserWrapper:
@@ -15,10 +17,12 @@ class ParserWrapper:
         """Получить граф для заданной технологии и списка отношений."""
         raw_graph: Dict[str, Any]
         try:
+            logger.info(f"[PARSER] Start parsing: {technology}, types: {relationships}")
             raw_graph = self._parser.graph(
                 technologies=[technology], relationships=relationships
             )
         except ValueError:
+            logger.warning(f"[PARSER] Returning None for {technology}. Reason: ValueError")
             return None
 
         return self._to_api_format(raw_graph)
@@ -27,13 +31,17 @@ class ParserWrapper:
     def _to_api_format(raw_graph: dict) -> GraphResponse:
         """Преобразует граф от парсера (parser/parser) → GraphResponse (ecosystem_analyzer.models).
         Результат является унифицированным форматом для взаимодействия всех 4 модулей системы."""
+        raw_nodes = raw_graph.get("nodes", [])
+        raw_edges = raw_graph.get("edges", [])
+        logger.info(f"Converting graph: get {len(raw_nodes)} nodes and {len(raw_edges)} edges from parser.")
+
         nodes = [
             Node(
                 id=node["id"],
-                label=node["name"],
+                label=node["name"].lower(),
                 type=node["type"].replace("_", " ").title().replace(" ", ""),
             )
-            for node in raw_graph.get("nodes", [])
+            for node in raw_nodes
         ]
 
         edges = [
@@ -43,7 +51,7 @@ class ParserWrapper:
                 type=edge["predicate"].upper().replace(" ", "_"),
                 weight=1.0,  # Парсер не возвращает веса, ставим дефолт
             )
-            for edge in raw_graph.get("edges", [])
+            for edge in raw_edges
         ]
 
         return GraphResponse(
@@ -56,34 +64,3 @@ class ParserWrapper:
                 truncated=False,
             ),
         )
-
-
-MOCK_GRAPH = GraphResponse(
-    nodes=[
-        {"id": "tech_001", "label": "Apache Kafka", "type": "Technology"},
-        {"id": "tech_002", "label": "RabbitMQ", "type": "Technology"},
-        {"id": "comp_001", "label": "Confluent", "type": "Company"},
-        {"id": "lic_001", "label": "Apache 2.0", "type": "License"},
-    ],
-    edges=[
-        {
-            "source": "tech_001",
-            "target": "tech_002",
-            "type": "ALTERNATIVE_TO",
-            "weight": 0.9,
-        },
-        {
-            "source": "tech_001",
-            "target": "comp_001",
-            "type": "DEVELOPED_BY",
-            "weight": 1.0,
-        },
-        {
-            "source": "tech_001",
-            "target": "lic_001",
-            "type": "LICENSED_UNDER",
-            "weight": 1.0,
-        },
-    ],
-    statistics=Statistics(total_nodes=4, total_edges=3, max_depth=2),
-)
