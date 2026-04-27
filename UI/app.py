@@ -114,16 +114,17 @@ def main():
 
         all_nodes = []
         all_edges = []
-        seen_node_ids = set()
+        seen_node_labels = set()
 
         for tech_name, graph_data in st.session_state.loaded_graphs.items():
             # Объединение всех полученных графов в один
             if not graph_data: continue
 
             for node in graph_data.get("nodes", []):
-                if node["id"] not in seen_node_ids:
+                node_label = node.get("label")
+                if node_label not in seen_node_labels:
                     all_nodes.append(node)
-                    seen_node_ids.add(node["id"])
+                    seen_node_labels.add(node_label)
 
             all_edges.extend(graph_data.get("edges", []))
 
