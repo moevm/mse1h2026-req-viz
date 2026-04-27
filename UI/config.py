@@ -3,41 +3,41 @@ from typing import Dict, List, Tuple
 
 
 BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:8000")
-BACKEND_TIMEOUT = int(os.getenv("BACKEND_TIMEOUT", "30"))
+BACKEND_TIMEOUT = int(os.getenv("BACKEND_TIMEOUT", "120"))
 
 
 EDGE_TYPES: List[str] = [
-    "USES",                   
-    "USED_BY",                 
-    "DEPENDS_ON_SOFTWARE",    
-    "BASED_ON",               
-    "INSPIRED_BY",            
-    "CREATOR",                 
-    "DEVELOPER",               
-    "PROGRAMMED_IN",          
-    "OWNED_BY",               
+    "USES",
+    "USED_BY",
+    "DEPENDS_ON_SOFTWARE",
+    "BASED_ON",
+    "INSPIRED_BY",
+    "CREATOR",
+    "DEVELOPER",
+    "PROGRAMMED_IN",
+    "OWNED_BY",
 ]
 
 
 NODE_COLORS: Dict[str, str] = {
-    "Technology": "#3572CE",   
-    "Company": "#318B1E",      
-    "Entity": "#3572CE",       
-    "License": "#FF9800",      
-    "Person": "#9C27B0",       
-    "Organization": "#607D8B", 
+    "Technology": "#3572CE",
+    "Company": "#318B1E",
+    "Entity": "#3572CE",
+    "License": "#FF9800",
+    "Person": "#9C27B0",
+    "Organization": "#607D8B",
 }
 
 EDGE_COLORS: Dict[str, str] = {
-    "USES": "#1A581C",              
-    "USED_BY": "#8DFC0F",           
-    "DEPENDS_ON_SOFTWARE": "#9C27B0",  
-    "BASED_ON": "#3F51B5",          
-    "INSPIRED_BY": "#E91E63",       
-    "CREATOR": "#2196F3",           
-    "DEVELOPER": "#00BCD4",         
-    "PROGRAMMED_IN": "#FF5722",     
-    "OWNED_BY": "#795548",          
+    "USES": "#1A581C",
+    "USED_BY": "#8DFC0F",
+    "DEPENDS_ON_SOFTWARE": "#9C27B0",
+    "BASED_ON": "#3F51B5",
+    "INSPIRED_BY": "#E91E63",
+    "CREATOR": "#2196F3",
+    "DEVELOPER": "#00BCD4",
+    "PROGRAMMED_IN": "#FF5722",
+    "OWNED_BY": "#795548",
 }
 
 EDGE_TYPE_NAMES: Dict[str, str] = {
@@ -67,7 +67,7 @@ NODE_TYPE_FILTERS: List[Tuple[str, str]] = [
     ("License", "🟠 Лицензия"),
     ("Person", "🟣 Человек"),
     ("Organization", "⚫ Организация"),
-    ("Entity", "🟢 Сущность"),  
+    ("Entity", "🟢 Сущность"),
 ]
 
 
