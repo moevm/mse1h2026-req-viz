@@ -1,8 +1,11 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 import os
 import logging
+import requests
+import json
+from datetime import datetime
 
 from ecosystem_analyzer.models import GraphResponse
 from ecosystem_analyzer.database import Database
@@ -128,6 +131,98 @@ async def get_graph(
 
 
 """ Entry point to the API """
+@app.post("/api/report")
+async def generate_report(request: Request):
+    try:
+        graph_data = await request.json()
+        logger.info("Received graph data for report generation")
+        logger.debug(f"Graph data: {graph_data}")
+
+        ollama_url = os.getenv("OLLAMA_URL", "http://ollama:11434/api/generate")
+
+        tech_name = graph_data.get("meta", {}).get("technology", "Unknown")
+        first_node_label = next((node.get("label") for node in graph_data.get("nodes", []) if node.get("label")), "Unknown")
+        if tech_name == "Unknown" and first_node_label != "Unknown":
+            tech_name = first_node_label
+
+        prompt = f"""
+        Ты - эксперт по анализу технологических экосистем и зависимостей.
+        Проведи профессиональный анализ графа зависимостей технологии "{tech_name}".
+
+        Структура графа:
+
+        {json.dumps(graph_data, ensure_ascii=False, indent=2)}
+
+        Типы узлов:
+        - Technology: Технологии и программные решения
+        - Company: Компании и организации
+        - Person: Персоны (разработчики, создатели)
+        - License: Лицензии и условия использования
+        - Organization: Организации и сообщества
+
+        Типы связей:
+        - USES: Использует
+        - USED_BY: Используется
+        - DEPENDS_ON_SOFTWARE: Зависит от ПО
+        - BASED_ON: Основан на
+        - INSPIRED_BY: Вдохновлен
+        - CREATOR: Создатель
+        - DEVELOPER: Разработчик
+        - PROGRAMMED_IN: Написан на языке
+        - OWNED_BY: Принадлежит
+
+        Пожалуйста, предоставь анализ в следующем формате на русском языке:
+
+        ## Обзор технологии "{tech_name}"
+        Краткое описание технологии и её роль в экосистеме.
+
+        ## Архитектурные зависимости
+        Основные зависимости и взаимосвязи. Какие технологии использует "{tech_name}", от чего зависит.
+
+        ## Экосистема и связи
+        Кто создал технологию, кто поддерживает, какие компании используют.
+
+        ## Потенциальные риски
+        Возможные риски, связанные с зависимостями и использованием технологии.
+
+        ## Рекомендации
+        Практические рекомендации по использованию и мониторингу технологии.
+
+        Используй технические термины на английском языке где это уместно (например, названия технологий), но объясняй их на русском.
+        Не включай JSON или технические детали в ответ, только аналитическую информацию в формате Markdown.
+        """
+
+        ollama_request = {
+            "model": "gemma:2b",
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": 0.7,
+                "top_p": 0.9
+            }
+        }
+
+        response = requests.post(ollama_url, json=ollama_request, timeout=120)
+
+        if response.status_code == 200:
+            ollama_response = response.json()
+            llm_response = ollama_response.get("response", "")
+
+            frontend_response = {
+                "status": "success",
+                "report_markdown": llm_response,
+                "generated_at": datetime.utcnow().isoformat() + "Z",
+            }
+
+            logger.info("Generated report successfully")
+            return frontend_response
+        else:
+            logger.error(f"Ollama service error: {response.status_code} - {response.text}")
+            raise HTTPException(status_code=500, detail="Failed to generate report with LLM")
+
+    except Exception as e:
+        logger.error(f"Error generating report: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error generating report: {str(e)}")
 
 
 @app.get("/")
