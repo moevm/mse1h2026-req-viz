@@ -1,24 +1,114 @@
 import streamlit as st
 import pandas as pd
+
 from config import NODE_TYPE_FILTERS, EDGE_TYPES, EDGE_TYPE_NAMES, WEIGHTED_EDGE_TYPES, BINARY_EDGE_TYPES
 from services import BackendClient, NotFoundError, BackendError
-from visualization import create_graph_visualization
 from report_generator import ReportGenerator
+from streamlit_agraph import agraph
+from visualization import create_graph_visualization
+
+#логика расширения графв
+def merge_graphs(base_nodes, base_edges, expanded_ids, subgraphs):
+    nodes = list(base_nodes)
+    edges = list(base_edges)
+
+    label_to_id = {n["label"]: n["id"] for n in nodes}
+
+    seen_edges = {
+        (e["source"], e["target"], e.get("type"))
+        for e in edges
+    }
+
+    for nid in expanded_ids:
+        sub = subgraphs.get(nid)
+        if not sub:
+            continue
+
+        for n in sub["nodes"]:
+            label = n["label"]
+
+            if label not in label_to_id:
+                nodes.append(n)
+                label_to_id[label] = n["id"]
+
+        for e in sub["edges"]:
+            src_label = next(
+                n["label"]
+                for n in sub["nodes"]
+                if n["id"] == e["source"]
+            )
+
+            tgt_label = next(
+                n["label"]
+                for n in sub["nodes"]
+                if n["id"] == e["target"]
+            )
+
+            new_source = label_to_id[src_label]
+            new_target = label_to_id[tgt_label]
+
+            key = (
+                new_source,
+                new_target,
+                e.get("type")
+            )
+
+            if key not in seen_edges:
+                new_edge = e.copy()
+                new_edge["source"] = new_source
+                new_edge["target"] = new_target
+
+                edges.append(new_edge)
+                seen_edges.add(key)
+
+    return {"nodes": nodes, "edges": edges}
+
+def toggle_node(node_id, clean_label):
+    """Переключает состояние узла: добавляет/удаляет подграф."""
+    backend = BackendClient()
+
+    if node_id in st.session_state.expanded_nodes:
+        # сворачиваем
+        st.session_state.expanded_nodes.discard(node_id)
+        st.session_state.subgraphs.pop(node_id, None)
+        st.info(f"Узел '{clean_label}' свернут.")
+    else:
+        # раскрываем
+        try:
+            with st.spinner(f"Загрузка соседей для '{clean_label}'..."):
+                sub = backend.get_graph(clean_label)
+                
+                if not sub or not sub.get("nodes"):
+                    st.warning(f"Бэкенд вернул пустой граф для '{clean_label}'.")
+                    return
+
+                st.session_state.subgraphs[node_id] = {
+                    "nodes": sub.get("nodes", []),
+                    "edges": sub.get("edges", [])
+                }
+                st.session_state.expanded_nodes.add(node_id)
+        except Exception as e:
+            st.error(f"Ошибка: {e}")
+
 
 
 def main():
-    """Главная функция Streamlit приложения для визуализации графов технологий."""
-    st.set_page_config(
-        page_title="Tech Graph Analyzer",
-        layout="wide"
-    )
-    
+    st.set_page_config(page_title="Tech Graph Analyzer", layout="wide")
     st.title("Визуализация технологических зависимостей")
     
     if 'graph_data' not in st.session_state:
         st.session_state.graph_data = None
     if 'search_query' not in st.session_state:
         st.session_state.search_query = ""
+    # для расширения графа
+    if 'display_graph' not in st.session_state:
+        st.session_state.display_graph = {"nodes": [], "edges": []}
+    if 'expanded_nodes' not in st.session_state:
+        st.session_state.expanded_nodes = set()
+    if 'subgraphs' not in st.session_state:
+        st.session_state.subgraphs = {}
+    if "last_click" not in st.session_state:
+        st.session_state.last_click = None
     
     st.subheader("Поиск технологии")
 
@@ -33,15 +123,14 @@ def main():
         )
 
     with search_col2:
-        button_container = st.container()
-        with button_container:
-            search_button = st.button(
-                "Построить граф", 
-                use_container_width=True, 
-                type="primary",
-                key="search_btn"
-            )
+        search_button = st.button(
+            "Построить граф", 
+            use_container_width=True, 
+            type="primary",
+            key="search_btn"
+        )
     
+    # обработка поиска 
     if search_button or (search_query and st.session_state.search_query != search_query):
         st.session_state.search_query = search_query
         
@@ -55,6 +144,10 @@ def main():
                 with st.spinner("Построение графа зависимостей..."):
                     graph = backend.get_graph(search_query)
                     st.session_state.graph_data = graph
+                    # сброс состояния для нового графа
+                    st.session_state.display_graph = graph
+                    st.session_state.expanded_nodes = set()
+                    st.session_state.subgraphs = {}
                     st.success(f"Граф успешно получен для '{search_query}'")
                     st.rerun()
             except NotFoundError:
@@ -71,6 +164,7 @@ def main():
                 st.error(f"Неверный запрос: {str(e)}")
                 st.session_state.graph_data = None
     
+    # отображение графа
     if st.session_state.graph_data:
         st.divider()
         col_filters, col_graph = st.columns([1, 3])
@@ -115,24 +209,48 @@ def main():
                 if st.checkbox(label, value=True, key=f"node_{node_type}"):
                     node_filters.append(node_type)
         
-
         with col_graph:
             st.subheader("Визуализация графа")
-            
-            try:
-                html_viz = create_graph_visualization(
-                    nodes=st.session_state.graph_data["nodes"],
-                    edges=st.session_state.graph_data["edges"],
-                    node_filters=node_filters,
-                    edge_weight_thresholds=edge_weight_thresholds,
-                    binary_edge_filters=binary_edge_filters
-                )
-                st.components.v1.html(html_viz, height=550, scrolling=False)
-            except Exception as e:
-                st.error(f"Ошибка визуализации: {str(e)}")
-                st.warning("Попробуйте нажать 'Обновить визуализацию' или перезагрузить страницу.")
-        
-        st.divider()
+
+
+            agraph_nodes, agraph_edges, config = create_graph_visualization(
+                nodes=st.session_state.display_graph["nodes"],
+                edges=st.session_state.display_graph["edges"],
+                node_filters=node_filters,
+                edge_weight_thresholds=edge_weight_thresholds,
+                binary_edge_filters=binary_edge_filters
+            )
+
+            selected = agraph(
+                nodes=agraph_nodes,
+                edges=agraph_edges,
+                config=config
+            )
+            if selected:
+                node_id = selected["id"] if isinstance(selected, dict) else selected
+
+                if st.session_state.get("last_click") != node_id:
+                    node_map = {
+                        n["id"]: n["label"]
+                        for n in st.session_state.display_graph["nodes"]
+                    }
+
+                    if node_id in node_map:
+                        st.session_state.last_click = node_id
+                        
+                        toggle_node(node_id, node_map[node_id])
+
+                        st.session_state.display_graph = merge_graphs(
+                            st.session_state.graph_data["nodes"],
+                            st.session_state.graph_data["edges"],
+                            st.session_state.expanded_nodes,
+                            st.session_state.subgraphs
+                        )
+
+                        st.rerun()
+            else:
+                st.session_state.last_click = None
+        # отчет
         st.subheader("Параметры отчёта")
         
         col_report1, col_report2, col_report3 = st.columns([1, 1, 1], gap="medium")
@@ -163,32 +281,130 @@ def main():
             if st.button("Скачать отчет (PDF)", use_container_width=True, type="primary"):
                 try:
                     report_gen = ReportGenerator()
-                    
+
                     if not selected_node_ids:
                         nodes_for_report = [n for n in st.session_state.graph_data["nodes"] if n.get("type") in node_filters]
                         node_ids_for_report = None
+                        selected_node_set = {n.get('id') for n in nodes_for_report}
                     else:
                         nodes_for_report = st.session_state.graph_data["nodes"]
                         node_ids_for_report = selected_node_ids
-                    
+                        selected_node_set = set(selected_node_ids)
+
+                    all_edges = st.session_state.graph_data.get("edges", [])
                     edge_types_for_report = selected_edge_types if selected_edge_types else None
-                    
-                    pdf_buffer = report_gen.generate_pdf(
-                        nodes=nodes_for_report,
-                        edges=st.session_state.graph_data.get("edges", []),
-                        selected_nodes=node_ids_for_report,
-                        selected_edge_types=edge_types_for_report,
-                        technology_name=st.session_state.search_query
-                    )
-                    
-                    st.download_button(
-                        label="Скачать PDF",
-                        data=pdf_buffer,
-                        file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
-                        mime="application/pdf",
-                        key="download_report"
-                    )
-                    st.success(" Отчет готов!")
+                    edges_for_report = []
+                    for e in all_edges:
+                        if e.get('source') not in selected_node_set and e.get('target') not in selected_node_set:
+                            continue
+                        if edge_types_for_report and e.get('type') not in edge_types_for_report:
+                            continue
+                        edges_for_report.append(e)
+
+                    backend = BackendClient()
+                    payload = {
+                        "nodes": nodes_for_report,
+                        "edges": edges_for_report,
+                        "meta": {"technology": st.session_state.search_query}
+                    }
+
+                    try:
+                        resp = backend.generate_report(payload)
+                    except Exception as be:
+                        st.warning(f"Не удалось обратиться к backend: {str(be)} — сгенерируем отчет локально.")
+                        pdf_buffer = report_gen.generate_pdf(
+                            nodes=nodes_for_report,
+                            edges=edges_for_report,
+                            selected_nodes=node_ids_for_report,
+                            selected_edge_types=edge_types_for_report,
+                            technology_name=st.session_state.search_query
+                        )
+                        st.download_button(
+                            label="Скачать PDF",
+                            data=pdf_buffer,
+                            file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
+                            mime="application/pdf",
+                            key="download_report_local"
+                        )
+                        st.success("Отчет готов")
+                   
+                    content_type = resp.headers.get('content-type', '') if resp is not None else ''
+                    if resp.status_code == 200 and content_type.startswith('application/json'):
+                        try:
+                            resp_json = resp.json()
+                        except Exception:
+                            st.error("Backend вернул некорректный JSON. Выполняю локальную генерацию.")
+                            resp_json = None
+
+                        if resp_json and isinstance(resp_json, dict) and 'nodes' in resp_json and 'edges' in resp_json:
+                            pdf_buffer = report_gen.generate_pdf(
+                                nodes=resp_json['nodes'],
+                                edges=resp_json['edges'],
+                                selected_nodes=node_ids_for_report,
+                                selected_edge_types=edge_types_for_report,
+                                technology_name=st.session_state.search_query
+                            )
+                            st.download_button(
+                                label="Скачать PDF",
+                                data=pdf_buffer,
+                                file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
+                                mime="application/pdf",
+                                key="download_report_backend_json"
+                            )
+                            st.success("Отчет готов")
+                        elif 'report_markdown' in resp_json:
+                            pdf_buffer = report_gen.generate_pdf(
+                                nodes=nodes_for_report,
+                                edges=edges_for_report,
+                                selected_nodes=node_ids_for_report,
+                                selected_edge_types=edge_types_for_report,
+                                technology_name=st.session_state.search_query,
+                                additional_content=resp_json['report_markdown']
+                            )
+                            st.download_button(
+                                label="Скачать PDF",
+                                data=pdf_buffer,
+                                file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
+                                mime="application/pdf",
+                                key="download_report_with_backend_content"
+                            )
+                            st.success("Отчет готов")
+                        else:
+                            st.error("Backend вернул неожиданный формат ответа. Отображаю содержимое ответа в отчете.")
+                            st.markdown("### Ответ от Backend")
+                            st.markdown(f"```json\n{resp.text}\n```")
+
+                            pdf_buffer = report_gen.generate_pdf(
+                                nodes=nodes_for_report,
+                                edges=edges_for_report,
+                                selected_nodes=node_ids_for_report,
+                                selected_edge_types=edge_types_for_report,
+                                technology_name=st.session_state.search_query
+                            )
+                            st.download_button(
+                                label="Скачать PDF",
+                                data=pdf_buffer,
+                                file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
+                                mime="application/pdf",
+                                key="download_report_unexpected"
+                            )
+                    else:
+                        st.warning(f"Backend вернул статус {resp.status_code}. Выполняю локальную генерацию.")
+                        pdf_buffer = report_gen.generate_pdf(
+                            nodes=nodes_for_report,
+                            edges=edges_for_report,
+                            selected_nodes=node_ids_for_report,
+                            selected_edge_types=edge_types_for_report,
+                            technology_name=st.session_state.search_query
+                        )
+                        st.download_button(
+                            label="Скачать PDF",
+                            data=pdf_buffer,
+                            file_name=f"report_{st.session_state.search_query.lower().replace(' ', '_')}.pdf",
+                            mime="application/pdf",
+                            key="download_report_error_fallback"
+                        )
+
                 except Exception as e:
                     st.error(f"Ошибка при формировании отчета: {str(e)}")
                     st.info("Убедитесь, что установлен пакет reportlab: pip install reportlab")
