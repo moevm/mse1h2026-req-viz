@@ -112,134 +112,127 @@ def main():
     if st.session_state.loaded_graphs:
         st.divider()
 
+        all_nodes = []
+        all_edges = []
+        seen_node_ids = set()
+
         for tech_name, graph_data in st.session_state.loaded_graphs.items():
-            if not graph_data:
-                continue
+            # Объединение всех полученных графов в один
+            if not graph_data: continue
 
-            # Виртуальная рамка для каждого графа, чтобы отделить их друг от друга
-            with st.container(border=True):
-                st.subheader(f"Граф: {tech_name}")
+            for node in graph_data.get("nodes", []):
+                if node["id"] not in seen_node_ids:
+                    all_nodes.append(node)
+                    seen_node_ids.add(node["id"])
 
-                col_filters, col_graph = st.columns([1, 3], gap="large")
+            all_edges.extend(graph_data.get("edges", []))
 
-                safe_tech_name = tech_name.replace(" ", "_").replace("-", "_").lower()
+        col_filters, col_graph = st.columns([1, 3], gap="large")
 
-                with col_filters:
-                    st.markdown("**Фильтры связей**")
+        with col_filters:
+            st.markdown("**Фильтры связей**")
+            edge_weight_thresholds = {}
+            binary_edge_filters = {}
 
-                    edge_weight_thresholds = {}
-                    binary_edge_filters = {}
+            if WEIGHTED_EDGE_TYPES:
+                for edge_type in WEIGHTED_EDGE_TYPES:
+                    display_name = EDGE_TYPE_NAMES.get(edge_type, edge_type)
+                    threshold = st.slider(
+                        f"{display_name}", 0.0, 1.0, 1.0, 0.1,
+                        key=f"thr_{edge_type}_global", format="%.1f"
+                    )
+                    edge_weight_thresholds[edge_type] = threshold
 
-                    if WEIGHTED_EDGE_TYPES:
-                        for edge_type in WEIGHTED_EDGE_TYPES:
-                            display_name = EDGE_TYPE_NAMES.get(edge_type, edge_type)
-                            threshold = st.slider(
-                                f"{display_name}",
-                                min_value=0.0,
-                                max_value=1.0,
-                                value=1.0,
-                                step=0.1,
-                                key=f"thr_{edge_type}_{safe_tech_name}",
-                                format="%.1f"
-                            )
-                            edge_weight_thresholds[edge_type] = threshold
+            st.divider()
+            if BINARY_EDGE_TYPES:
+                st.markdown("**Показывать связи:**")
+                for edge_type in BINARY_EDGE_TYPES:
+                    display_name = EDGE_TYPE_NAMES.get(edge_type, edge_type)
+                    is_checked = st.checkbox(
+                        display_name, value=True, key=f"bin_{edge_type}"
+                    )
+                    binary_edge_filters[edge_type] = is_checked
+            st.divider()
+            st.markdown("**Типы узлов:**")
+            node_filters = []
+            for node_type, label in NODE_TYPE_FILTERS:
+                if st.checkbox(label, value=True, key=f"node_{node_type}"):
+                    node_filters.append(node_type)
 
-                    st.divider()
+        with col_graph:
+            st.markdown("**Визуализация**")
+            try:
+                html_viz = create_graph_visualization(
+                    nodes=all_nodes,
+                    edges=all_edges,
+                    node_filters=node_filters,
+                    edge_weight_thresholds=edge_weight_thresholds,
+                    binary_edge_filters=binary_edge_filters
+                )
+                st.components.v1.html(html_viz, height=600, scrolling=False)
+            except Exception as e:
+                st.error(f"Ошибка визуализации: {str(e)}")
 
-                    if BINARY_EDGE_TYPES:
-                        st.markdown("**Показывать связи:**")
-                        for edge_type in BINARY_EDGE_TYPES:
-                            display_name = EDGE_TYPE_NAMES.get(edge_type, edge_type)
-                            is_checked = st.checkbox(
-                                display_name,
-                                value=True,
-                                key=f"bin_{edge_type}_{safe_tech_name}"
-                            )
-                            binary_edge_filters[edge_type] = is_checked
-                    st.divider()
+        st.divider()
+        st.subheader("Единый отчет по всем технологиям")
 
-                    st.markdown("**Типы узлов:**")
-                    node_filters = []
-                    for node_type, label in NODE_TYPE_FILTERS:
-                        if st.checkbox(label, value=True, key=f"node_{node_type}_{safe_tech_name}"):
-                            node_filters.append(node_type)
+        col_rep1, col_rep2, col_rep3 = st.columns([1, 1, 1], gap="medium")
 
-                with col_graph:
-                    st.markdown("**Визуализация**")
-                    try:
-                        html_viz = create_graph_visualization(
-                            nodes=graph_data["nodes"],
-                            edges=graph_data["edges"],
-                            node_filters=node_filters,
-                            edge_weight_thresholds=edge_weight_thresholds,
-                            binary_edge_filters=binary_edge_filters
-                        )
-                        st.components.v1.html(html_viz, height=550, scrolling=False)
-                    except Exception as e:
-                        st.error(f"Ошибка визуализации: {str(e)}")
+        # Формируем списки для селекторов из объединенных данных
+        all_node_options = {n["id"]: f"{n.get('label')} ({n.get('type')})" for n in all_nodes}
 
+        with col_rep1:
+            selected_node_ids = st.multiselect(
+                "Узлы для отчета",
+                options=list(all_node_options.keys()),
+                format_func=lambda x: all_node_options.get(x, x),
+                key="rep_nodes_global",
+                help="Пусто = все узлы"
+            )
 
-                st.divider()
-                st.subheader("Параметры отчёта")
+        with col_rep2:
+            selected_edge_types = st.multiselect(
+                "Типы связей",
+                options=EDGE_TYPES,
+                format_func=lambda x: EDGE_TYPE_NAMES.get(x, x),
+                key="rep_edges_global",
+                help="Пусто = все типы"
+            )
 
-                col_report1, col_report2, col_report3 = st.columns([1, 1, 1], gap="medium")
+        with col_rep3:
+            st.write("")
+            if st.button("Скачать общий PDF", use_container_width=True, type="primary", key="btn_gen_global"):
+                try:
+                    report_gen = ReportGenerator()
 
-                available_nodes = graph_data.get("nodes", [])
-                node_options = {n.get("id"): f"{n.get('label')} ({n.get('type')})" for n in available_nodes}
+                    # Логика фильтрации узлов для отчета
+                    if not selected_node_ids:
+                        nodes_for_report = [n for n in all_nodes if n.get("type") in node_filters]
+                        node_ids_for_report = None
+                    else:
+                        nodes_for_report = all_nodes
+                        node_ids_for_report = selected_node_ids
 
-                with col_report1:
-                    selected_node_ids = st.multiselect(
-                        "Узлы для отчета",
-                        options=list(node_options.keys()),
-                        format_func=lambda x: node_options.get(x, x),
-                        key=f"rep_nodes_{safe_tech_name}",
-                        help="Оставьте пусто = все узлы"
+                    edge_types_for_report = selected_edge_types if selected_edge_types else None
+
+                    pdf_buffer = report_gen.generate_pdf(
+                        nodes=nodes_for_report,
+                        edges=all_edges,
+                        selected_nodes=node_ids_for_report,
+                        selected_edge_types=edge_types_for_report,
+                        technology_name="All_Technologies_Report"
                     )
 
-                with col_report2:
-                    selected_edge_types = st.multiselect(
-                        "Типы связей для отчета",
-                        options=EDGE_TYPES,
-                        format_func=lambda x: EDGE_TYPE_NAMES.get(x, x),
-                        key=f"rep_edges_{safe_tech_name}",
-                        help="Оставьте пусто = все типы"
+                    st.download_button(
+                        label="Скачать PDF",
+                        data=pdf_buffer,
+                        file_name="report_all_technologies.pdf",
+                        mime="application/pdf",
+                        key="dl_global"
                     )
-
-                with col_report3:
-                    st.write("")
-                    gen_btn_key = f"btn_gen_{safe_tech_name}"
-                    if st.button("Скачать отчет (PDF)", use_container_width=True, type="primary", key=gen_btn_key):
-                        try:
-                            report_gen = ReportGenerator()
-
-                            if not selected_node_ids:
-                                nodes_for_report = [n for n in available_nodes if n.get("type") in node_filters]
-                                node_ids_for_report = None
-                            else:
-                                nodes_for_report = available_nodes
-                                node_ids_for_report = selected_node_ids
-
-                            edge_types_for_report = selected_edge_types if selected_edge_types else None
-
-                            pdf_buffer = report_gen.generate_pdf(
-                                nodes=nodes_for_report,
-                                edges=graph_data.get("edges", []),
-                                selected_nodes=node_ids_for_report,
-                                selected_edge_types=edge_types_for_report,
-                                technology_name=tech_name # Используем конкретное имя технологии
-                            )
-
-                            st.download_button(
-                                label="Скачать PDF",
-                                data=pdf_buffer,
-                                file_name=f"report_{tech_name.lower().replace(' ', '_')}.pdf",
-                                mime="application/pdf",
-                                key=f"dl_{safe_tech_name}"
-                            )
-                            st.success(" Отчет готов!")
-                        except Exception as e:
-                            st.error(f"Ошибка при формировании отчета: {str(e)}")
-                            st.info("Убедитесь, что установлен пакет reportlab: pip install reportlab")
+                    st.success("Отчет готов!")
+                except Exception as e:
+                    st.error(f"Ошибка формирования отчета: {str(e)}")
 
 
     
