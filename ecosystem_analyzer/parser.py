@@ -33,7 +33,7 @@ class ParserWrapper:
         Результат является унифицированным форматом для взаимодействия всех 4 модулей системы."""
         raw_nodes = raw_graph.get("nodes", [])
         raw_edges = raw_graph.get("edges", [])
-        logger.info(f"Converting graph: get {len(raw_nodes)} nodes and {len(raw_edges)} edges from parser.")
+        logger.info(f"[PARSER]: get {len(raw_nodes)} nodes and {len(raw_edges)} edges from parser.")
 
         nodes = [
             Node(

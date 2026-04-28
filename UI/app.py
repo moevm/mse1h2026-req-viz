@@ -109,8 +109,10 @@ def main():
     st.set_page_config(page_title="Tech Graph Analyzer", layout="wide")
     st.title("Визуализация технологических зависимостей")
     
-    if 'loaded_graphs' not in st.loaded_graphs:
-        st.session_state.loaded_graphs = {} # Ключ: имя технологии, Значение: данные графа
+    if 'graph_data' not in st.session_state:
+        st.session_state.graph_data = {} # Ключ: имя технологии, Значение: данные графа
+    if "graph_states" not in st.session_state:
+        st.session_state.graph_states = {}
     if 'search_query' not in st.session_state:
         st.session_state.search_query = ""
     # для расширения графа
@@ -157,17 +159,38 @@ def main():
             backend = BackendClient()
             progress_bar = st.progress(0)
             status_text = st.empty()
+            completed_count = 0
+            total_count = len(technologies)
             
             try:
-                with st.spinner("Построение графа зависимостей..."):
-                    graph = backend.get_graph(search_query)
-                    st.session_state.graph_data = graph
-                    # сброс состояния для нового графа
-                    st.session_state.display_graph = graph
-                    st.session_state.expanded_nodes = set()
-                    st.session_state.subgraphs = {}
-                    st.success(f"Граф успешно получен для '{search_query}'")
-                    st.rerun()
+                with st.spinner("Построение зависимостей..."):
+                    future_to_tech = {executor.submit(fetch_single_graph, backend, tech): tech for tech in technologies}
+
+                    for future in as_completed(future_to_tech):
+                        tech_name = future_to_tech[future]
+                        try:
+                            result = future.result()
+
+                            if result["error"]:
+                                if result["error"] == "not_found":
+                                    st.error(f"Технология '{result['name']}' не найдена.")
+                                else:
+                                    st.error(f"Ошибка при загрузке '{result['name']}': {result['error']}")
+                            else:
+                                # Сохраняем успешный результат в состояние
+                                st.session_state.graph_data[result["name"]] = result["data"]
+                                # st.session_state.display_graph["nodes"].extend(result["data"]["nodes"])
+                                # st.session_state.display_graph["edges"].extend(result["data"]["edges"])
+                                st.success(f"Граф для '{result['name']}' загружен!")
+
+                        except Exception as exc:
+                            st.error(f"Критическая ошибка для {tech_name}: {exc}")
+
+                        completed_count += 1
+                        progress_bar.progress(completed_count / total_count)
+                        status_text.text(f"Загружено {completed_count} из {total_count}")
+                st.rerun()
+
             except NotFoundError:
                 st.error(f"Технология '{search_query}' не найдена")
                 st.info("Попробуйте другую технологию или проверьте правописание")
@@ -186,6 +209,38 @@ def main():
     if st.session_state.graph_data:
         st.divider()
         col_filters, col_graph = st.columns([1, 3])
+        all_nodes = []
+        all_edges = []
+        seen_node_labels = set() # для проверки дубликатов узлов
+        id_mapping = {} # словарь для замены source и target в ребрах при объединении одинаковых узлов
+
+        for tech_name, tech_graph in st.session_state.graph_data.items():
+            # Объединение всех полученных графов в один
+            if not tech_graph: continue
+
+            nodes = tech_graph.get("nodes", [])
+            edges = tech_graph.get("edges", [])
+
+            for node in nodes:
+                node_label = node.get("label")
+                if node_label and node_label not in seen_node_labels:
+                    seen_node_labels.add(node_label)
+                    all_nodes.append(node)
+                    id_mapping[node["id"]] = node["id"]
+                else:
+                    canonical_node = next((n for n in all_nodes if n.get("label") == node_label), None)
+                    if canonical_node:
+                        id_mapping[node["id"]] = canonical_node["id"]
+
+            for edge in edges:
+                new_edge = edge.copy()
+                # Меняем source и target на новые ID из словаря
+                new_edge["source"] = id_mapping.get(edge["source"], edge["source"])
+                new_edge["target"] = id_mapping.get(edge["target"], edge["target"])
+                all_edges.append(new_edge)
+
+            # all_edges.extend(tech_graph.get("edges", []))
+            st.session_state.display_graph = {"nodes": all_nodes, "edges": all_edges}
         
         with col_filters:
             st.subheader("Фильтры")
@@ -232,8 +287,8 @@ def main():
 
 
             agraph_nodes, agraph_edges, config = create_graph_visualization(
-                nodes=st.session_state.display_graph["nodes"],
-                edges=st.session_state.display_graph["edges"],
+                nodes=all_nodes,
+                edges=all_edges,
                 node_filters=node_filters,
                 edge_weight_thresholds=edge_weight_thresholds,
                 binary_edge_filters=binary_edge_filters
@@ -259,8 +314,8 @@ def main():
                         toggle_node(node_id, node_map[node_id])
 
                         st.session_state.display_graph = merge_graphs(
-                            st.session_state.graph_data["nodes"],
-                            st.session_state.graph_data["edges"],
+                            all_nodes,
+                            all_edges,
                             st.session_state.expanded_nodes,
                             st.session_state.subgraphs
                         )
@@ -272,9 +327,8 @@ def main():
         st.subheader("Параметры отчёта")
         
         col_report1, col_report2, col_report3 = st.columns([1, 1, 1], gap="medium")
-        
-        available_nodes = st.session_state.graph_data.get("nodes", [])
-        node_options = {n.get("id"): f"{n.get('label')} ({n.get('type')})" for n in available_nodes}
+
+        node_options = {n["id"]: f"{n.get('label')} ({n.get('type')})" for n in all_nodes}
         
         with col_report1:
             selected_node_ids = st.multiselect(
@@ -301,15 +355,15 @@ def main():
                     report_gen = ReportGenerator()
 
                     if not selected_node_ids:
-                        nodes_for_report = [n for n in st.session_state.graph_data["nodes"] if n.get("type") in node_filters]
+                        nodes_for_report = [n for n in all_nodes if n.get("type") in node_filters]
                         node_ids_for_report = None
                         selected_node_set = {n.get('id') for n in nodes_for_report}
                     else:
-                        nodes_for_report = st.session_state.graph_data["nodes"]
+                        nodes_for_report = all_nodes
                         node_ids_for_report = selected_node_ids
                         selected_node_set = set(selected_node_ids)
 
-                    all_edges = st.session_state.graph_data.get("edges", [])
+                    # all_edges = st.session_state.graph_data.get("edges", [])
                     edge_types_for_report = selected_edge_types if selected_edge_types else None
                     edges_for_report = []
                     for e in all_edges:
