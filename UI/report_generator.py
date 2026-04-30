@@ -1,3 +1,4 @@
+import re
 from typing import Dict, List, Any
 from datetime import datetime
 from io import BytesIO
@@ -61,6 +62,13 @@ class ReportGenerator:
             spaceAfter=12,
             spaceBefore=12
         ))
+        self.styles.add(ParagraphStyle(
+            name='TableText',
+            parent=self.styles['Normal'],
+            fontName=self.font_name,
+            fontSize=9,
+            wordWrap='CJK'   
+        ))
         try:
             self.styles['Normal'].fontName = self.font_name
         except Exception:
@@ -72,12 +80,13 @@ class ReportGenerator:
         edges: List[Dict[str, Any]],
         selected_nodes: List[str] | None = None,
         selected_edge_types: List[str] | None = None,
-        technology_name: str = "Unknown"
+        technology_name: str = "Unknown",
+        additional_content: str | None = None
     ) -> BytesIO:
         """Генерирует PDF-отчет с таблицами узлов, связей и статистики."""
         filtered_nodes = self._filter_nodes(nodes, selected_nodes)
         filtered_edges = self._filter_edges(edges, selected_edge_types, filtered_nodes)
-        
+
         pdf_buffer = BytesIO()
         doc = SimpleDocTemplate(
             pdf_buffer,
@@ -87,33 +96,44 @@ class ReportGenerator:
             topMargin=0.5 * inch,
             bottomMargin=0.5 * inch
         )
-        
+
         story = []
-        
+
         title = Paragraph(f"Анализ: {technology_name}", self.styles['Title_Custom'])
         story.append(title)
-        
+
         timestamp = Paragraph(
             f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}",
             self.styles['Normal']
         )
         story.append(timestamp)
         story.append(Spacer(1, 0.3 * inch))
-        
+
+        if additional_content:
+            story.append(
+                Paragraph("Дополнительная информация", self.styles['Heading_Custom'])
+            )
+
+            md_elements = self._markdown_to_story(additional_content)
+
+            story.extend(md_elements)
+
+            story.append(Spacer(1, 0.3 * inch))
+
         story.append(Paragraph("Узлы", self.styles['Heading_Custom']))
         nodes_table = self._create_nodes_table(filtered_nodes)
         story.append(nodes_table)
         story.append(Spacer(1, 0.2 * inch))
-        
+
         story.append(Paragraph("Связи", self.styles['Heading_Custom']))
         edges_table = self._create_edges_table(filtered_edges, filtered_nodes)
         story.append(edges_table)
         story.append(Spacer(1, 0.2 * inch))
-        
+
         story.append(Paragraph("Статистика", self.styles['Heading_Custom']))
         stats_table = self._create_stats_table(filtered_nodes, filtered_edges)
         story.append(stats_table)
-        
+
         doc.build(story)
         pdf_buffer.seek(0)
         return pdf_buffer
@@ -153,14 +173,23 @@ class ReportGenerator:
     
     def _create_nodes_table(self, nodes: List[Dict[str, Any]]) -> Table:
         """Создаёт таблицу узлов с названиями и типами."""
-        data = [["Название", "Тип"]]
+        data = [[
+            Paragraph("Название", self.styles['Normal']),
+            Paragraph("Тип", self.styles['Normal'])
+        ]]
         
         for node in nodes:
             node_type = node.get('type', 'N/A')
             translated_type = NODE_TYPE_TRANSLATIONS.get(node_type, node_type)
             data.append([
-                node.get('label', 'N/A')[:40],
-                translated_type
+                Paragraph(
+                    node.get('label', 'N/A'),
+                    self.styles['Normal']
+                ),
+                Paragraph(
+                    translated_type,
+                    self.styles['Normal']
+                )
             ])
         
         table = Table(data, colWidths=[4*inch, 2*inch])
@@ -198,10 +227,22 @@ class ReportGenerator:
                 status = f"{edge.get('weight', 0):.2f}"
             
             data.append([
-                source_node.get('label', edge.get('source', 'N/A'))[:25],
-                target_node.get('label', edge.get('target', 'N/A'))[:25],
-                translated_edge_type,
-                status
+                Paragraph(
+                    source_node.get('label', edge.get('source', 'N/A')),
+                    self.styles['Normal']
+                ),
+                Paragraph(
+                    target_node.get('label', edge.get('target', 'N/A')),
+                    self.styles['Normal']
+                ),
+                Paragraph(
+                    translated_edge_type,
+                    self.styles['Normal']
+                ),
+                Paragraph(
+                    status,
+                    self.styles['Normal']
+                )
             ])
         
         table = Table(data, colWidths=[1.8*inch, 1.5*inch, 2.2*inch, 0.8*inch])
@@ -235,20 +276,55 @@ class ReportGenerator:
             edge_types[edge_type] = edge_types.get(edge_type, 0) + 1
         
         data = [
-            ["Метрика", "Значение"],
-            ["Всего узлов", str(len(nodes))],
-            ["Всего связей", str(len(edges))],
-            ["Типы узлов", ", ".join([NODE_TYPE_TRANSLATIONS.get(t, t) for t in node_types.keys()])],
-            ["Типы связей", ", ".join([EDGE_TYPE_TRANSLATIONS.get(t, t) for t in edge_types.keys()])],
+            [
+                Paragraph("Метрика", self.styles['TableText']),
+                Paragraph("Значение", self.styles['TableText'])
+            ],
+            [
+                Paragraph("Всего узлов", self.styles['TableText']),
+                Paragraph(str(len(nodes)), self.styles['TableText'])
+            ],
+            [
+                Paragraph("Всего связей", self.styles['TableText']),
+                Paragraph(str(len(edges)), self.styles['TableText'])
+            ],
+            [
+                Paragraph("Типы узлов", self.styles['TableText']),
+                Paragraph(
+                    ", ".join([
+                        NODE_TYPE_TRANSLATIONS.get(t, t)
+                        for t in node_types.keys()
+                    ]),
+                    self.styles['TableText']
+                )
+            ]
         ]
         
         for node_type, count in node_types.items():
             translated_type = NODE_TYPE_TRANSLATIONS.get(node_type, node_type)
-            data.append([f"  {translated_type}", str(count)])
+            data.append([
+                Paragraph(
+                    f"  {translated_type}",
+                    self.styles['TableText']
+                ),
+                Paragraph(
+                    str(count),
+                    self.styles['TableText']
+                )
+            ])
         
         for edge_type, count in edge_types.items():
             translated_type = EDGE_TYPE_TRANSLATIONS.get(edge_type, edge_type)
-            data.append([f"  {translated_type}", str(count)])
+            data.append([
+                Paragraph(
+                    f"  {translated_type}",
+                    self.styles['TableText']
+                ),
+                Paragraph(
+                    str(count),
+                    self.styles['TableText']
+                )
+            ])
         
         table = Table(data, colWidths=[2.5*inch, 3.5*inch])
         table.setStyle(TableStyle([
@@ -262,3 +338,48 @@ class ReportGenerator:
         ]))
         
         return table
+    
+
+    def _markdown_to_story(self, markdown_text: str):
+        """Преобразует Markdown в список Paragraph для reportlab."""
+        
+        elements = []
+        lines = markdown_text.split("\n")
+
+        for line in lines:
+            line = line.strip()
+
+            if not line:
+                elements.append(Spacer(1, 6))
+                continue
+
+            if line.startswith("### "):
+                text = line[4:]
+                elements.append(
+                    Paragraph(text, self.styles['Heading_Custom'])
+                )
+                continue
+
+            if line.startswith("## "):
+                text = line[3:]
+                elements.append(
+                    Paragraph(text, self.styles['Heading_Custom'])
+                )
+                continue
+
+            if line.startswith("# "):
+                text = line[2:]
+                elements.append(
+                    Paragraph(text, self.styles['Heading_Custom'])
+                )
+                continue
+
+            line = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", line)
+
+            line = re.sub(r"\*(.*?)\*", r"<i>\1</i>", line)
+
+            elements.append(
+                Paragraph(line, self.styles['Normal'])
+            )
+
+        return elements

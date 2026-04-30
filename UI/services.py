@@ -62,6 +62,17 @@ class BackendClient:
             error_msg += f": {resp.text[:200]}"
         raise BackendError(error_msg)
 
+    def generate_report(self, graph_payload: Dict[str, Any]) -> 'requests.Response':
+        url = f"{self.base_url}/api/report"
+        try:
+            resp = self.session.post(url, json=graph_payload, timeout=self.timeout)
+        except Timeout as e:
+            raise BackendError("request timed out (report generation)") from e
+        except RequestException as e:
+            raise BackendError("network error (failed to connect to backend)") from e
+
+        return resp
+
     def get_available_connection_types(self) -> List[str]:
         return EDGE_TYPES
     
