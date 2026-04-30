@@ -3,6 +3,9 @@ relationship_types:
     category: "TECHNICAL"
     subcategory: "integration"
     wikidata_property: "P2283"  # uses
+    dbpedia:
+      - property: "dbo:computingPlatform"
+        direction: "forward"
     stackoverflow:
         - ...
     weight_default: 0.7
@@ -11,6 +14,9 @@ relationship_types:
     category: "TECHNICAL"
     subcategory: "integration"
     wikidata_property: "P1535"  # used by
+    dbpedia:
+      - property: "dbo:computingPlatform"
+        direction: "reverse"
     stackoverflow:
         - ...
     weight_default: 0.7
@@ -19,6 +25,9 @@ relationship_types:
     category: "TECHNICAL"
     subcategory: "integration"
     wikidata_property: "P1547"  # depends on
+    dbpedia:
+      - property: "dbo:wikiPageWikiLink"
+        direction: "forward"
     stackoverflow:
         - ...
     weight_default: 0.7
@@ -27,6 +36,11 @@ relationship_types:
     category: "TECHNICAL"
     subcategory: "integration"
     wikidata_property: "P144"  # based on
+    dbpedia:
+      - property: "dbo:influenced"
+        direction: "reverse"
+      - property: "dbo:basedOn"
+        direction: "forward"
     stackoverflow:
         - ...
     weight_default: 0.7
@@ -35,6 +49,9 @@ relationship_types:
     category: "TECHNICAL"
     subcategory: "integration"
     wikidata_property: "P941"  # inspired by
+    dbpedia:
+      - property: "dbo:influencedBy"
+        direction: "forward"
     stackoverflow:
         - ...
     weight_default: 0.7
@@ -43,6 +60,9 @@ relationship_types:
     category: "TECHNICAL"
     subcategory: "integration"
     wikidata_property: "P170"  # creator
+    dbpedia:
+      - property: "dbo:author"
+        direction: "forward"
     stackoverflow:
         - ...
     weight_default: 0.7
@@ -51,6 +71,9 @@ relationship_types:
     category: "TECHNICAL"
     subcategory: "integration"
     wikidata_property: "P178"  # developer
+    dbpedia:
+      - property: "dbo:developer"
+        direction: "forward"
     stackoverflow:
         - ...
     weight_default: 0.7
@@ -59,6 +82,9 @@ relationship_types:
     category: "TECHNICAL"
     subcategory: "integration"
     wikidata_property: "P277"  # programmed in
+    dbpedia:
+      - property: "dbo:programmingLanguage"
+        direction: "forward"
     stackoverflow:
         - ...
     weight_default: 0.7
@@ -67,8 +93,12 @@ relationship_types:
     category: "TECHNICAL"
     subcategory: "integration"
     wikidata_property: "P127"  # owned by
+    dbpedia:
+      - property: "dbo:owner"
+        direction: "forward"
+      - property: "dbo:owningCompany"
+        direction: "forward"
     stackoverflow:
         - ...
     weight_default: 0.7
     description: "Владелец"
-

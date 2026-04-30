@@ -39,7 +39,12 @@ class WikidataClient:
         return data.get("relationship_types", [])
 
     def get_technology_info(self, tech_name: str) -> Optional[Dict[str, Any]]:
+        """Получает полную информацию о технологии по её названию."""
         return self.rest.get_technology_info(tech_name)
+
+    def get_sitelink(self, item_id: str) -> Optional[str]:
+        """Получает название статьи English Wikipedia по QID."""
+        return self.rest.get_sitelink(item_id)
 
     def get_data(self, tech_name: str, relationship_name: str) -> List[Dict[str, str]]:
         """Возвращает список сущностей по указанному отношению."""
