@@ -13,7 +13,8 @@ RUN pip install --no-cache-dir \
     pyvis \
     requests \
     urllib3 \
-    reportlab
+    reportlab \
+    streamlit-agraph
 
 COPY . .
 

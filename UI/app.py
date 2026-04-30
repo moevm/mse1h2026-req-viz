@@ -1,28 +1,114 @@
 import streamlit as st
 import pandas as pd
+
 from config import NODE_TYPE_FILTERS, EDGE_TYPES, EDGE_TYPE_NAMES, WEIGHTED_EDGE_TYPES, BINARY_EDGE_TYPES
 from services import BackendClient, NotFoundError, BackendError
-from visualization import create_graph_visualization
 from report_generator import ReportGenerator
+from streamlit_agraph import agraph
+from visualization import create_graph_visualization
 
-# Streamlit UI для:
-# - поиска технологий
-# - визуализации графа зависимостей
-# - генерации отчётов (PDF)
+#логика расширения графв
+def merge_graphs(base_nodes, base_edges, expanded_ids, subgraphs):
+    nodes = list(base_nodes)
+    edges = list(base_edges)
+
+    label_to_id = {n["label"]: n["id"] for n in nodes}
+
+    seen_edges = {
+        (e["source"], e["target"], e.get("type"))
+        for e in edges
+    }
+
+    for nid in expanded_ids:
+        sub = subgraphs.get(nid)
+        if not sub:
+            continue
+
+        for n in sub["nodes"]:
+            label = n["label"]
+
+            if label not in label_to_id:
+                nodes.append(n)
+                label_to_id[label] = n["id"]
+
+        for e in sub["edges"]:
+            src_label = next(
+                n["label"]
+                for n in sub["nodes"]
+                if n["id"] == e["source"]
+            )
+
+            tgt_label = next(
+                n["label"]
+                for n in sub["nodes"]
+                if n["id"] == e["target"]
+            )
+
+            new_source = label_to_id[src_label]
+            new_target = label_to_id[tgt_label]
+
+            key = (
+                new_source,
+                new_target,
+                e.get("type")
+            )
+
+            if key not in seen_edges:
+                new_edge = e.copy()
+                new_edge["source"] = new_source
+                new_edge["target"] = new_target
+
+                edges.append(new_edge)
+                seen_edges.add(key)
+
+    return {"nodes": nodes, "edges": edges}
+
+def toggle_node(node_id, clean_label):
+    """Переключает состояние узла: добавляет/удаляет подграф."""
+    backend = BackendClient()
+
+    if node_id in st.session_state.expanded_nodes:
+        # сворачиваем
+        st.session_state.expanded_nodes.discard(node_id)
+        st.session_state.subgraphs.pop(node_id, None)
+        st.info(f"Узел '{clean_label}' свернут.")
+    else:
+        # раскрываем
+        try:
+            with st.spinner(f"Загрузка соседей для '{clean_label}'..."):
+                sub = backend.get_graph(clean_label)
+                
+                if not sub or not sub.get("nodes"):
+                    st.warning(f"Бэкенд вернул пустой граф для '{clean_label}'.")
+                    return
+
+                st.session_state.subgraphs[node_id] = {
+                    "nodes": sub.get("nodes", []),
+                    "edges": sub.get("edges", [])
+                }
+                st.session_state.expanded_nodes.add(node_id)
+        except Exception as e:
+            st.error(f"Ошибка: {e}")
+
+
 
 def main():
-    """Главная функция Streamlit приложения для визуализации графов технологий."""
-    st.set_page_config(
-        page_title="Tech Graph Analyzer",
-        layout="wide"
-    )
-    
+    st.set_page_config(page_title="Tech Graph Analyzer", layout="wide")
     st.title("Визуализация технологических зависимостей")
     
     if 'graph_data' not in st.session_state:
         st.session_state.graph_data = None
     if 'search_query' not in st.session_state:
         st.session_state.search_query = ""
+    # для расширения графа
+    if 'display_graph' not in st.session_state:
+        st.session_state.display_graph = {"nodes": [], "edges": []}
+    if 'expanded_nodes' not in st.session_state:
+        st.session_state.expanded_nodes = set()
+    if 'subgraphs' not in st.session_state:
+        st.session_state.subgraphs = {}
+    if "last_click" not in st.session_state:
+        st.session_state.last_click = None
     
     st.subheader("Поиск технологии")
 
@@ -37,15 +123,14 @@ def main():
         )
 
     with search_col2:
-        button_container = st.container()
-        with button_container:
-            search_button = st.button(
-                "Построить граф", 
-                use_container_width=True, 
-                type="primary",
-                key="search_btn"
-            )
+        search_button = st.button(
+            "Построить граф", 
+            use_container_width=True, 
+            type="primary",
+            key="search_btn"
+        )
     
+    # обработка поиска 
     if search_button or (search_query and st.session_state.search_query != search_query):
         st.session_state.search_query = search_query
         
@@ -59,6 +144,10 @@ def main():
                 with st.spinner("Построение графа зависимостей..."):
                     graph = backend.get_graph(search_query)
                     st.session_state.graph_data = graph
+                    # сброс состояния для нового графа
+                    st.session_state.display_graph = graph
+                    st.session_state.expanded_nodes = set()
+                    st.session_state.subgraphs = {}
                     st.success(f"Граф успешно получен для '{search_query}'")
                     st.rerun()
             except NotFoundError:
@@ -75,6 +164,7 @@ def main():
                 st.error(f"Неверный запрос: {str(e)}")
                 st.session_state.graph_data = None
     
+    # отображение графа
     if st.session_state.graph_data:
         st.divider()
         col_filters, col_graph = st.columns([1, 3])
@@ -119,24 +209,48 @@ def main():
                 if st.checkbox(label, value=True, key=f"node_{node_type}"):
                     node_filters.append(node_type)
         
-
         with col_graph:
             st.subheader("Визуализация графа")
-            
-            try:
-                html_viz = create_graph_visualization(
-                    nodes=st.session_state.graph_data["nodes"],
-                    edges=st.session_state.graph_data["edges"],
-                    node_filters=node_filters,
-                    edge_weight_thresholds=edge_weight_thresholds,
-                    binary_edge_filters=binary_edge_filters
-                )
-                st.components.v1.html(html_viz, height=550, scrolling=False)
-            except Exception as e:
-                st.error(f"Ошибка визуализации: {str(e)}")
-                st.warning("Попробуйте нажать 'Обновить визуализацию' или перезагрузить страницу.")
-        
-        st.divider()
+
+
+            agraph_nodes, agraph_edges, config = create_graph_visualization(
+                nodes=st.session_state.display_graph["nodes"],
+                edges=st.session_state.display_graph["edges"],
+                node_filters=node_filters,
+                edge_weight_thresholds=edge_weight_thresholds,
+                binary_edge_filters=binary_edge_filters
+            )
+
+            selected = agraph(
+                nodes=agraph_nodes,
+                edges=agraph_edges,
+                config=config
+            )
+            if selected:
+                node_id = selected["id"] if isinstance(selected, dict) else selected
+
+                if st.session_state.get("last_click") != node_id:
+                    node_map = {
+                        n["id"]: n["label"]
+                        for n in st.session_state.display_graph["nodes"]
+                    }
+
+                    if node_id in node_map:
+                        st.session_state.last_click = node_id
+                        
+                        toggle_node(node_id, node_map[node_id])
+
+                        st.session_state.display_graph = merge_graphs(
+                            st.session_state.graph_data["nodes"],
+                            st.session_state.graph_data["edges"],
+                            st.session_state.expanded_nodes,
+                            st.session_state.subgraphs
+                        )
+
+                        st.rerun()
+            else:
+                st.session_state.last_click = None
+        # отчет
         st.subheader("Параметры отчёта")
         
         col_report1, col_report2, col_report3 = st.columns([1, 1, 1], gap="medium")
