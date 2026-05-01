@@ -142,49 +142,49 @@ async def check_cache_for_technologies(
 
 async def parse_and_save_missing(
         to_parse_list: List[str],
-        rel_types_lower: List[str],
+        rel_types: List[str],
         loop: asyncio.AbstractEventLoop
-) -> Optional[GraphResponse]:
+) -> List[GraphResponse]:
     """ Parses a graph for the list of missing technologies. Saves the resulting graph to the database. """
     if not to_parse_list:
-        return None
+        return []
 
     logger.info(f"Parsing missing technologies: {to_parse_list}")
     if parser is None:
         raise HTTPException(status_code=503, detail="Parser service unavailable")
 
-    new_graph = None
-    try:
-        new_graph = await loop.run_in_executor(
-            executor,
-            parser.parse_graph,
-            to_parse_list,
-            rel_types_lower
-        )
+    parsed_graphs = []
+
+    for tech_name in to_parse_list:
+        new_graph = None
+
+        try:
+            new_graph = await loop.run_in_executor(
+                executor,
+                parser.parse_graph,
+                [tech_name],
+                rel_types
+            )
+        except Exception as e:
+            logger.error(f"Parser error for {to_parse_list}: {e}", exc_info=True)
 
         if new_graph and new_graph.nodes:
             logger.info(f"Parser returned graph with {len(new_graph.nodes)} nodes")
-
-            for tech_name in to_parse_list:
-                try:
-                    await loop.run_in_executor(
-                        executor,
-                        db.save_graph,
-                        new_graph,
-                        tech_name
-                    )
-                    logger.info(f"Saved graph for '{tech_name}'")
-                except Exception as e:
-                    logger.error(f"Failed to save graph for '{tech_name}': {e}")
-
-            return new_graph
+            parsed_graphs.append(new_graph)
+            try:
+                await loop.run_in_executor(
+                    executor,
+                    db.save_graph,
+                    new_graph,
+                    tech_name
+                )
+                logger.info(f"Saved graph for '{tech_name}'")
+            except Exception as e:
+                logger.error(f"Failed to save graph for '{tech_name}': {e}")
         else:
-            logger.warning("Parser returned empty result for missing technologies")
-            return None
+            logger.warning(f"Parser returned empty result for {tech_name}")
 
-    except Exception as e:
-        logger.error(f"Parser error for {to_parse_list}: {e}", exc_info=True)
-        return None
+    return parsed_graphs
 
 
 
@@ -230,12 +230,12 @@ async def get_graph(
     )
 
     # Parse and saving
-    new_graph = await parse_and_save_missing(
+    missed_graphs = await parse_and_save_missing(
         to_parse_list, rel_types_list, loop
     )
 
-    if new_graph:
-        cached_graphs.append(new_graph)
+    if len(missed_graphs) > 0:
+        cached_graphs.extend(missed_graphs)
 
     if not cached_graphs:
         raise HTTPException(status_code=404, detail="No data found for any of the requested technologies")
