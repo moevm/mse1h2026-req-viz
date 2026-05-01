@@ -8,11 +8,11 @@ from ecosystem_analyzer.models import GraphResponse
 from ecosystem_analyzer.database import Database
 from ecosystem_analyzer.parser import ParserWrapper
 
-MAX_DEPTH = 10 # Max depth of graph response TODO: remove or replace to env file
+MAX_DEPTH = 10 # Max depth of graph response
 MAX_NODES = 100 # Max nodes to return
-ALLOWED_REL_TYPES = { #TODO: replace to env file, for parser/parser also or remove from everywhere
+ALLOWED_REL_TYPES = [
     "uses", "used by", "based on", "inspired by", "creator", "developer", "programmed in", "owned by"
-}
+]
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
@@ -22,12 +22,10 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-logger = logging.getLogger(__name__)
-
 """ CORS for Streamlit """
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: change to real address Streamlit
+    allow_origins=["http://localhost:8501"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,14 +38,19 @@ db = Database(
     database=os.getenv("NEO4J_DATABASE", "neo4j"),
 )
 
-parser = ParserWrapper()
+parser: Optional[ParserWrapper] = None
 
 
 @app.on_event("startup")
 def startup_event():
+    global parser
     logger.info("Connecting to Database...")
     db.connect()
-    logger.info("Connected to Data")
+    logger.info("Connecting to Parser...")
+    try:
+        parser = ParserWrapper()
+    except Exception as e:
+        logger.error(f"Failed to initialize ParserWrapper: {e}", exc_info=True)
 
 
 @app.on_event("shutdown")
@@ -79,7 +82,7 @@ async def get_graph(
         ..., description="Technology name (e.g., 'Kafka', 'PostgreSQL')"
     ),
     depth: int = Query(1, ge=1, le=MAX_DEPTH, description="Graph traversal depth"),
-    limit: int = Query(MAX_NODES, ge=1, description="Max nodes to return"),
+    limit: int = Query(MAX_NODES, ge=1, le=MAX_NODES, description="Max nodes to return"),
     rel_types: Optional[str] = Query(
         None,
         description="Comma-separated relationship types (e.g., 'USED_WITH,DEPENDS_ON')",
@@ -92,28 +95,25 @@ async def get_graph(
         rel_types_list = rel_types.split(",")
 
     # Search in DB
-    graph = db.get_graph_by_technology(
-        technology,
-        depth=depth,
-        limit=limit,
-        rel_types=[x.upper().replace(" ", "_") for x in rel_types_list],
-    )
-
-    if graph:
+    graph = db.get_graph_by_technology(technology, depth=depth, limit=limit, rel_types=rel_types_list)
+    if graph and graph.nodes:
         logger.info(f"Found '{technology}' in database ({len(graph.nodes)} nodes)")
         return graph
 
     # Parse
     logger.info(f"'{technology}' not found in database, calling parser...")
+    if parser is None:
+        raise HTTPException(status_code=503, detail="Service is initializing or failed to start")
     try:
-        graph = parser.parse_graph(technology, rel_types_list)
+        graph = parser.parse_graph([technology], rel_types_list)
     except Exception as e:
         logger.error(f"Parser error for '{technology}': {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Parser error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal parser error")
 
-    if not graph:
+    if not graph or not graph.nodes:
         logger.info("Could not parse source")
         raise HTTPException(status_code=404, detail="Could not parse source")
+    logger.info(f"For '{technology}' parser returned ({len(graph.nodes)} nodes and {len(graph.edges)} edges)")
 
     # Save in DB
     logger.info(f"Saving graph for '{technology}' to database...")
@@ -122,9 +122,9 @@ async def get_graph(
         logger.info(f"Graph saved ({len(graph.nodes)} nodes, {len(graph.edges)} edges)")
     except Exception as e:
         logger.error(f"Failed to save graph for '{technology}': {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to save graph for '{technology}'")
 
-    return db.get_graph_by_technology(technology, depth=depth, limit=limit)
+    return graph
 
 
 """ Entry point to the API """

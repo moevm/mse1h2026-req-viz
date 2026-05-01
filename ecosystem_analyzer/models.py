@@ -19,6 +19,7 @@ class Statistics(BaseModel):
     total_nodes: int
     total_edges: int
     max_depth: Optional[int] = None
+    truncated: bool = False
 
 
 class GraphResponse(BaseModel):
