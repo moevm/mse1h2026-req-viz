@@ -154,35 +154,51 @@ async def parse_and_save_missing(
         raise HTTPException(status_code=503, detail="Parser service unavailable")
 
     parsed_graphs = []
+    labels_parsed_graphs = set()
+    max_retries = 3
 
-    for tech_name in to_parse_list:
-        new_graph = None
+    for retry in range(max_retries):
+        if len(labels_parsed_graphs) >= len(to_parse_list):
+            break
 
-        try:
-            new_graph = await loop.run_in_executor(
-                executor,
-                parser.parse_graph,
-                [tech_name],
-                rel_types
-            )
-        except Exception as e:
-            logger.error(f"Parser error for {to_parse_list}: {e}", exc_info=True)
+        # Wait before retrying to allow Wikidata rate limit to reset
+        if retry > 0:
+            await asyncio.sleep(60)
 
-        if new_graph and new_graph.nodes:
-            logger.info(f"Parser returned graph with {len(new_graph.nodes)} nodes")
-            parsed_graphs.append(new_graph)
+        for tech_name in to_parse_list:
+
+            if tech_name.lower() in labels_parsed_graphs :
+                continue
+
+            new_graph = None
+            await asyncio.sleep(15)
+
             try:
-                await loop.run_in_executor(
+                new_graph = await loop.run_in_executor(
                     executor,
-                    db.save_graph,
-                    new_graph,
-                    tech_name
+                    parser.parse_graph,
+                    [tech_name],
+                    rel_types
                 )
-                logger.info(f"Saved graph for '{tech_name}'")
             except Exception as e:
-                logger.error(f"Failed to save graph for '{tech_name}': {e}")
-        else:
-            logger.warning(f"Parser returned empty result for {tech_name}")
+                logger.error(f"Parser error for {to_parse_list}: {e}", exc_info=True)
+
+            if new_graph and new_graph.nodes:
+                logger.info(f"Parser returned graph with {len(new_graph.nodes)} nodes")
+                labels_parsed_graphs.add(tech_name.lower())
+                parsed_graphs.append(new_graph)
+                try:
+                    await loop.run_in_executor(
+                        executor,
+                        db.save_graph,
+                        new_graph,
+                        tech_name
+                    )
+                    logger.info(f"Saved graph for '{tech_name}'")
+                except Exception as e:
+                    logger.error(f"Failed to save graph for '{tech_name}': {e}")
+            else:
+                logger.warning(f"Parser returned empty result for {tech_name}")
 
     return parsed_graphs
 
