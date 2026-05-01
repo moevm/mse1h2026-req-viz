@@ -211,7 +211,7 @@ def main():
         
         with col_graph:
             st.subheader("Визуализация графа")
-
+            st.write(f"Отрисовка: {len(st.session_state.display_graph['nodes'])} узлов, {len(st.session_state.display_graph['edges'])} связей")
 
             agraph_nodes, agraph_edges, config = create_graph_visualization(
                 nodes=st.session_state.display_graph["nodes"],
