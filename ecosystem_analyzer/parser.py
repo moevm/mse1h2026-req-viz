@@ -1,7 +1,8 @@
 from typing import Optional, List, Dict, Any
 from .models import Node, Edge, Statistics, GraphResponse
 from parser.parser import Parser
-
+import logging
+logger = logging.getLogger(__name__)
 
 class ParserWrapper:
     """Обертка над классом Parser из модуля parser."""
@@ -10,15 +11,18 @@ class ParserWrapper:
         self._parser = Parser()
 
     def parse_graph(
-        self, technology: str, relationships: List[str]
+        self, technologies: List[str], relationships: List[str]
     ) -> Optional[GraphResponse]:
         """Получить граф для заданной технологии и списка отношений."""
         raw_graph: Dict[str, Any]
+        relationships =[x.lower().replace("_", " ") for x in relationships]
+
         try:
             raw_graph = self._parser.graph(
-                technologies=[technology], relationships=relationships
+                technologies=technologies, relationships=relationships
             )
-        except ValueError:
+        except Exception as e:
+            logger.error(f"Parser error for '{technologies}': {e}", exc_info=True)
             return None
 
         return self._to_api_format(raw_graph)
@@ -56,34 +60,3 @@ class ParserWrapper:
                 truncated=False,
             ),
         )
-
-
-MOCK_GRAPH = GraphResponse(
-    nodes=[
-        {"id": "tech_001", "label": "Apache Kafka", "type": "Technology"},
-        {"id": "tech_002", "label": "RabbitMQ", "type": "Technology"},
-        {"id": "comp_001", "label": "Confluent", "type": "Company"},
-        {"id": "lic_001", "label": "Apache 2.0", "type": "License"},
-    ],
-    edges=[
-        {
-            "source": "tech_001",
-            "target": "tech_002",
-            "type": "ALTERNATIVE_TO",
-            "weight": 0.9,
-        },
-        {
-            "source": "tech_001",
-            "target": "comp_001",
-            "type": "DEVELOPED_BY",
-            "weight": 1.0,
-        },
-        {
-            "source": "tech_001",
-            "target": "lic_001",
-            "type": "LICENSED_UNDER",
-            "weight": 1.0,
-        },
-    ],
-    statistics=Statistics(total_nodes=4, total_edges=3, max_depth=2),
-)

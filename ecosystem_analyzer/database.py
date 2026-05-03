@@ -2,6 +2,7 @@ from typing import List, Optional
 from .models import GraphResponse, Node, Edge, Statistics
 from graph.service import GraphService
 from graph.connection import Neo4jConnection
+import logging
 from graph.models import (
     NodeCreate,
     RelationshipCreate,
@@ -27,6 +28,8 @@ class Database:
 
     def connect(self) -> None:
         """Открывает соединение с Neo4j и инициализирует схему."""
+        logging.getLogger("neo4j.notifications").setLevel(logging.ERROR)
+
         if self._conn is not None:
             return  # Уже подключено
 
@@ -64,6 +67,8 @@ class Database:
         if not center_nodes:
             return None
         center_node = center_nodes[0]
+
+        rel_types=[x.upper().replace(" ", "_") for x in rel_types]
 
         subgraph = self._service.get_subgraph(
             SubgraphFilter(
