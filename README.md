@@ -163,3 +163,32 @@ ecosystem_analyzer/templates/report_prompt.md
 Структура графа:
 {graph_data}
 ```
+
+### Настройка модели Ollama для генерации отчетов
+
+По умолчанию используется модель `gemma:2b` для генерации аналитических отчетов. Вы можете изменить модель на любую другую, доступную в Ollama.
+
+#### Изменение модели через переменные окружения
+
+1. **Добавьте переменную окружения в docker-compose.yml:**
+
+```yaml
+services:
+  backend:
+    environment:
+      - OLLAMA_MODEL=llama3:8b  # Замените на желаемую модель
+      - OLLAMA_URL=http://ollama:11434/api/generate
+```
+
+2. **Измените модель в docker-compose.yml для контейнера Ollama:**
+
+```yaml
+  ollama:
+    image: ollama/ollama:latest
+    command:
+      - |
+        /bin/ollama serve &
+        sleep 5
+        ollama pull llama3:8b  # Замените на желаемую модель
+        wait
+```
