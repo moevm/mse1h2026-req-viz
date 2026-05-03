@@ -278,8 +278,9 @@ async def get_graph(
         raise HTTPException(status_code=404, detail="Merged graph is empty")
     logger.info(f"Returning merged graph: {len(final_graph.nodes)} nodes, {len(final_graph.edges)} edges")
 
+    return final_graph
 
-""" Entry point to the API """
+
 @app.post("/api/report")
 async def generate_report(request: Request):
     try:
@@ -333,8 +334,6 @@ async def generate_report(request: Request):
     except Exception as e:
         logger.error(f"Error generating report: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error generating report: {str(e)}")
-
-    return final_graph
 
 @app.get("/")
 async def root():
