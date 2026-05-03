@@ -88,31 +88,45 @@ def health_check():
 
 def merge_graphs(graphs: List[GraphResponse]) -> GraphResponse:
     """ Combines multiple graph responses into a single graph. """
-    unique_nodes: Dict[str, Node] = {}
-    unique_edges: Dict[Tuple[str, str, str], Edge] = {}
+    unique_nodes = []
+    unique_edges = []
+    seen_node_labels = set()
+    id_mapping = {} # for replacing source and target in edges of duplicate nodes
 
     for g in graphs:
         if not g:
             continue
 
         for node in g.nodes:
-            if node.id not in unique_nodes:
-                unique_nodes[node.id] = node
+            if node.label.lower() not in seen_node_labels:
+                unique_nodes.append(node)
+                seen_node_labels.add(node.label.lower())
+                id_mapping[node.id] = node.id
+            else:
+                canonical_node = next((n for n in unique_nodes if n.label.lower() == node.label.lower()), None)
+                if canonical_node:
+                    id_mapping[node.id] = canonical_node.id
 
         for edge in g.edges:
-            edge_key = (edge.source, edge.target, edge.type)
-            if edge_key not in unique_edges:
-                unique_edges[edge_key] = edge
+            # Change source и target to new ID from map
+            new_source = id_mapping.get(edge.source, edge.source)
+            new_target = id_mapping.get(edge.target, edge.target)
 
-    final_nodes = list(unique_nodes.values())
-    final_edges = list(unique_edges.values())
+            updated_edge = Edge(
+                source=new_source,
+                target=new_target,
+                type=edge.type,
+                weight=edge.weight
+            )
+
+            unique_edges.append(updated_edge)
 
     return GraphResponse(
-        nodes=final_nodes,
-        edges=final_edges,
+        nodes=unique_nodes,
+        edges=unique_edges,
         statistics=Statistics(
-            total_nodes=len(final_nodes),
-            total_edges=len(final_edges),
+            total_nodes=len(unique_nodes),
+            total_edges=len(unique_edges),
             max_depth = max(
                 (g.statistics.max_depth for g in graphs if g.statistics and g.statistics.max_depth is not None),
                 default=1
