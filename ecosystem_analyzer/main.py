@@ -86,6 +86,26 @@ def shutdown_event():
 def health_check():
     return {"status": "ok", "connected": db.is_connected()}
 
+def clean_node_label(label: str) -> str:
+    """ Cleans the node label by removing common suffixes. """
+    if not label:
+        return label
+
+    suffixes_to_remove = [
+        "(programming language)",
+        "(software)",
+        "(library)",
+        "(framework)"
+    ]
+
+    cleaned_label = label
+    for suffix in suffixes_to_remove:
+        if cleaned_label.lower().endswith(suffix):
+            cleaned_label = cleaned_label[:-len(suffix)]
+            break
+
+    return cleaned_label.strip()
+
 def merge_graphs(graphs: List[GraphResponse]) -> GraphResponse:
     """ Combines multiple graph responses into a single graph. """
     unique_nodes = []
@@ -98,6 +118,7 @@ def merge_graphs(graphs: List[GraphResponse]) -> GraphResponse:
             continue
 
         for node in g.nodes:
+            node.label = clean_node_label(node.label)
             if node.label.lower() not in seen_node_labels:
                 unique_nodes.append(node)
                 seen_node_labels.add(node.label.lower())
