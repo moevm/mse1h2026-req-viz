@@ -277,16 +277,6 @@ async def get_graph(
     if not final_graph.nodes:
         raise HTTPException(status_code=404, detail="Merged graph is empty")
     logger.info(f"Returning merged graph: {len(final_graph.nodes)} nodes, {len(final_graph.edges)} edges")
-    # Save in DB
-    logger.info(f"Saving graph for '{technology}' to database...")
-    try:
-        db.save_graph(graph, source=technology)
-        logger.info(f"Graph saved ({len(graph.nodes)} nodes, {len(graph.edges)} edges)")
-    except Exception as e:
-        logger.error(f"Failed to save graph for '{technology}': {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-    return db.get_graph_by_technology(technology, depth=depth, limit=limit)
 
 
 """ Entry point to the API """
@@ -313,7 +303,7 @@ async def generate_report(request: Request):
         )
 
         ollama_request = {
-            "model": "gemma:2b",
+            "model": os.getenv("OLLAMA_MODEL", "gemma:2b"),
             "prompt": prompt,
             "stream": False,
             "options": {
