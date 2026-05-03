@@ -134,7 +134,7 @@ jobs:
         working-directory: tests/integration
         run: |
           echo "Running integration tests..."
-          python -m pytest test_graph_api.py -v --tb=short -m integration
+          python -m pytest test_graph_api.py -v -s --tb=short -m integration
         timeout-minutes: 10
 
       - name: Cleanup test environment
