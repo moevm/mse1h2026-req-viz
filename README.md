@@ -120,4 +120,4 @@ http://localhost:7474
 
 ### Документация
 - [Исследование возможностей API DBPedia](docs/dbpedia_usage.md)
-- [Исследование возможностей API StackOverflow](docs/stackoverflow_usage.md)
+- [Исследование возможностей API StackOverflow](docs/stackoverlow_usage.md)
