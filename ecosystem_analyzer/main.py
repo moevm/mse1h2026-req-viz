@@ -1,10 +1,14 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List, Dict, Tuple
 import os
 import logging
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
+import requests
+import json
+from datetime import datetime
+from pathlib import Path
 
 from ecosystem_analyzer.models import GraphResponse, Node, Edge, Statistics
 from ecosystem_analyzer.database import Database
@@ -43,6 +47,19 @@ db = Database(
 )
 
 parser: Optional[ParserWrapper] = None
+
+
+def load_prompt_template(template_name: str = "report_prompt.md") -> str:
+    try:
+        template_path = Path(__file__).parent / "templates" / template_name
+        with open(template_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        logger.error(f"Prompt template not found: {template_path}")
+        raise HTTPException(status_code=500, detail=f"Prompt template not found: {template_name}")
+    except Exception as e:
+        logger.error(f"Error loading prompt template: {e}")
+        raise HTTPException(status_code=500, detail=f"Error loading prompt template: {str(e)}")
 
 
 @app.on_event("startup")
@@ -262,6 +279,61 @@ async def get_graph(
     logger.info(f"Returning merged graph: {len(final_graph.nodes)} nodes, {len(final_graph.edges)} edges")
 
     return final_graph
+
+
+@app.post("/api/report")
+async def generate_report(request: Request):
+    try:
+        graph_data = await request.json()
+        logger.info("Received graph data for report generation")
+        logger.debug(f"Graph data: {graph_data}")
+
+        ollama_url = os.getenv("OLLAMA_URL", "http://ollama:11434/api/generate")
+
+        tech_name = graph_data.get("meta", {}).get("technology", "Unknown")
+        first_node_label = next((node.get("label") for node in graph_data.get("nodes", []) if node.get("label")), "Unknown")
+        if tech_name == "Unknown" and first_node_label != "Unknown":
+            tech_name = first_node_label
+
+        template_name = os.getenv("PROMPT_TEMPLATE", "report_prompt.md")
+        prompt_template = load_prompt_template(template_name)
+
+        prompt = prompt_template.format(
+            tech_name=tech_name,
+            graph_data=json.dumps(graph_data, ensure_ascii=False, indent=2)
+        )
+
+        ollama_request = {
+            "model": os.getenv("OLLAMA_MODEL", "gemma:2b"),
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": 0.7,
+                "top_p": 0.9
+            }
+        }
+
+        response = requests.post(ollama_url, json=ollama_request, timeout=120)
+
+        if response.status_code == 200:
+            ollama_response = response.json()
+            llm_response = ollama_response.get("response", "")
+
+            frontend_response = {
+                "status": "success",
+                "report_markdown": llm_response,
+                "generated_at": datetime.utcnow().isoformat() + "Z",
+            }
+
+            logger.info("Generated report successfully")
+            return frontend_response
+        else:
+            logger.error(f"Ollama service error: {response.status_code} - {response.text}")
+            raise HTTPException(status_code=500, detail="Failed to generate report with LLM")
+
+    except Exception as e:
+        logger.error(f"Error generating report: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error generating report: {str(e)}")
 
 @app.get("/")
 async def root():
