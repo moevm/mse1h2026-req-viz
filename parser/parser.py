@@ -36,7 +36,8 @@ class Parser:
                 continue
 
             tech_qid = tech_info["id"]
-
+            item = self.wikidata_client.get_item(tech_qid)
+            
             if tech_qid not in node_ids:
                 node_ids.add(tech_qid)
                 nodes.append({"id": tech_qid, "name": tech_name, "type": "technology"})
@@ -46,7 +47,7 @@ class Parser:
                 print(f"Предупреждение: sitelink для '{tech_name}' ({tech_qid}) не найден")
 
             for rel_name in relationships:
-                wikidata_data = self.wikidata_client.get_data(tech_name, rel_name)
+                wikidata_data = self.wikidata_client.get_data(item, rel_name)
                 self._add_to_graph(
                     wikidata_data, "wikidata", tech_qid, rel_name,
                     nodes, edges, node_ids,
