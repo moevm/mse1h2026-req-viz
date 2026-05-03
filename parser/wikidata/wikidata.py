@@ -46,13 +46,11 @@ class WikidataClient:
         """Получает название статьи English Wikipedia по QID."""
         return self.rest.get_sitelink(item_id)
 
-    def get_data(self, tech_name: str, relationship_name: str) -> List[Dict[str, str]]:
-        """Возвращает список сущностей по указанному отношению."""
-        tech_info = self.get_technology_info(tech_name)
-        if not tech_info:
-            return []
-        tech_qid = tech_info["id"]
+    def get_item(self, tech_qid: str) -> Dict[str, Any]:
+        return self.rest.get_item(tech_qid)
 
+    def get_data(self, tech_item: Dict[str, Any], relationship_name: str) -> List[Dict[str, str]]:
+        """Возвращает список сущностей по указанному отношению."""
         rel_conf = None
         for rel in self.relationship_types:
             if rel["predicate"] == relationship_name:
@@ -61,11 +59,8 @@ class WikidataClient:
         if not rel_conf:
             raise ValueError(f"Неизвестное отношение: {relationship_name}")
 
-        if relationship_name == "used by":
-            return self.sparql.get_using_technology(tech_qid)
-
         prop_pid = rel_conf["wikidata_property"]
         if self.parsing_type == "rest":
-            return self.rest.get_related_entities(prop_pid, tech_qid)
+            return self.rest.get_related_entities(prop_pid, tech_item)
         else:
-            return self.sparql.get_related_entities(prop_pid, tech_qid)
+            return self.sparql.get_related_entities(prop_pid, tech_item)
