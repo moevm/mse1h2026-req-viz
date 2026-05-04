@@ -6,12 +6,11 @@ from services import BackendClient, NotFoundError, BackendError
 from report_generator import ReportGenerator
 from streamlit_agraph import agraph
 from visualization import create_graph_visualization
-import random
 import math
+
 
 def merge_graphs(current_display_nodes, expanded_ids, subgraphs):
     nodes_map = {n["id"]: n for n in current_display_nodes}
-    
     all_edges = []
     seen_edges = set()
 
@@ -28,11 +27,18 @@ def merge_graphs(current_display_nodes, expanded_ids, subgraphs):
         parent_node = nodes_map.get(parent_id, {})
         px, py = parent_node.get("x", 400), parent_node.get("y", 300)
 
-        for n in sub["nodes"]:
-            if n["id"] not in nodes_map:
-                n["x"] = px + random.randint(-150, 150)
-                n["y"] = py + random.randint(-150, 150)
-                nodes_map[n["id"]] = n
+        new_nodes = [n for n in sub["nodes"] if n["id"] not in nodes_map]
+        num_new = len(new_nodes)
+        
+        radius = 150  
+
+        for i, n in enumerate(new_nodes):
+            angle = (2 * math.pi * i) / num_new
+            
+            n["x"] = px + radius * math.cos(angle)
+            n["y"] = py + radius * math.sin(angle)
+            
+            nodes_map[n["id"]] = n
             
         for e in sub["edges"]:
             key = (e["source"], e["target"], e.get("type"))
@@ -42,14 +48,25 @@ def merge_graphs(current_display_nodes, expanded_ids, subgraphs):
 
     return {"nodes": list(nodes_map.values()), "edges": all_edges}
 
-def assign_initial_positions(nodes, center_x=400, center_y=300, radius=200):
-    """Располагает узлы по кругу при первом поиске."""
-    for i, node in enumerate(nodes):
+def assign_initial_positions(nodes, center_x=400, center_y=300, radius=250):
+    """Располагает первый узел в центре, а остальные — вокруг него по кругу."""
+    if not nodes:
+        return nodes
+
+    nodes[0]["x"] = center_x
+    nodes[0]["y"] = center_y
+
+    other_nodes = nodes[1:]
+    num_others = len(other_nodes)
+    
+    for i, node in enumerate(other_nodes):
         if "x" not in node or "y" not in node:
-            angle = (2 * math.pi * i) / len(nodes)
+            angle = (2 * math.pi * i) / num_others if num_others > 0 else 0
             node["x"] = center_x + radius * math.cos(angle)
             node["y"] = center_y + radius * math.sin(angle)
+            
     return nodes
+
 
 def toggle_node(node_id, clean_label):
     """Переключает состояние узла: добавляет/удаляет подграф."""
@@ -200,8 +217,7 @@ def main():
         
         with col_graph:
             st.subheader("Визуализация графа")
-            st.write(f"Отрисовка: {len(st.session_state.display_graph['nodes'])} узлов, {len(st.session_state.display_graph['edges'])} связей")
-
+     
             agraph_nodes, agraph_edges, config = create_graph_visualization(
                 nodes=st.session_state.display_graph["nodes"],
                 edges=st.session_state.display_graph["edges"],
