@@ -6,62 +6,67 @@ from services import BackendClient, NotFoundError, BackendError
 from report_generator import ReportGenerator
 from streamlit_agraph import agraph
 from visualization import create_graph_visualization
+import math
 
-#логика расширения графв
-def merge_graphs(base_nodes, base_edges, expanded_ids, subgraphs):
-    nodes = list(base_nodes)
-    edges = list(base_edges)
 
-    label_to_id = {n["label"]: n["id"] for n in nodes}
+def merge_graphs(current_display_nodes, expanded_ids, subgraphs):
+    nodes_map = {n["id"]: n for n in current_display_nodes}
+    all_edges = []
+    seen_edges = set()
 
-    seen_edges = {
-        (e["source"], e["target"], e.get("type"))
-        for e in edges
-    }
+    if st.session_state.graph_data:
+        for e in st.session_state.graph_data["edges"]:
+            key = (e["source"], e["target"], e.get("type"))
+            all_edges.append(e)
+            seen_edges.add(key)
 
-    for nid in expanded_ids:
-        sub = subgraphs.get(nid)
-        if not sub:
-            continue
+    for parent_id in expanded_ids:
+        sub = subgraphs.get(parent_id)
+        if not sub: continue
 
-        for n in sub["nodes"]:
-            label = n["label"]
+        parent_node = nodes_map.get(parent_id, {})
+        px, py = parent_node.get("x", 400), parent_node.get("y", 300)
 
-            if label not in label_to_id:
-                nodes.append(n)
-                label_to_id[label] = n["id"]
+        new_nodes = [n for n in sub["nodes"] if n["id"] not in nodes_map]
+        num_new = len(new_nodes)
+        
+        radius = 150  
 
+        for i, n in enumerate(new_nodes):
+            angle = (2 * math.pi * i) / num_new
+            
+            n["x"] = px + radius * math.cos(angle)
+            n["y"] = py + radius * math.sin(angle)
+            
+            nodes_map[n["id"]] = n
+            
         for e in sub["edges"]:
-            src_label = next(
-                n["label"]
-                for n in sub["nodes"]
-                if n["id"] == e["source"]
-            )
-
-            tgt_label = next(
-                n["label"]
-                for n in sub["nodes"]
-                if n["id"] == e["target"]
-            )
-
-            new_source = label_to_id[src_label]
-            new_target = label_to_id[tgt_label]
-
-            key = (
-                new_source,
-                new_target,
-                e.get("type")
-            )
-
+            key = (e["source"], e["target"], e.get("type"))
             if key not in seen_edges:
-                new_edge = e.copy()
-                new_edge["source"] = new_source
-                new_edge["target"] = new_target
-
-                edges.append(new_edge)
+                all_edges.append(e)
                 seen_edges.add(key)
 
-    return {"nodes": nodes, "edges": edges}
+    return {"nodes": list(nodes_map.values()), "edges": all_edges}
+
+def assign_initial_positions(nodes, center_x=400, center_y=300, radius=250):
+    """Располагает первый узел в центре, а остальные — вокруг него по кругу."""
+    if not nodes:
+        return nodes
+
+    nodes[0]["x"] = center_x
+    nodes[0]["y"] = center_y
+
+    other_nodes = nodes[1:]
+    num_others = len(other_nodes)
+    
+    for i, node in enumerate(other_nodes):
+        if "x" not in node or "y" not in node:
+            angle = (2 * math.pi * i) / num_others if num_others > 0 else 0
+            node["x"] = center_x + radius * math.cos(angle)
+            node["y"] = center_y + radius * math.sin(angle)
+            
+    return nodes
+
 
 def toggle_node(node_id, clean_label):
     """Переключает состояние узла: добавляет/удаляет подграф."""
@@ -143,6 +148,7 @@ def main():
             try:
                 with st.spinner("Построение графа зависимостей..."):
                     graph = backend.get_graph(search_query)
+                    graph["nodes"] = assign_initial_positions(graph["nodes"])
                     st.session_state.graph_data = graph
                     # сброс состояния для нового графа
                     st.session_state.display_graph = graph
@@ -211,8 +217,7 @@ def main():
         
         with col_graph:
             st.subheader("Визуализация графа")
-            st.write(f"Отрисовка: {len(st.session_state.display_graph['nodes'])} узлов, {len(st.session_state.display_graph['edges'])} связей")
-
+     
             agraph_nodes, agraph_edges, config = create_graph_visualization(
                 nodes=st.session_state.display_graph["nodes"],
                 edges=st.session_state.display_graph["edges"],
@@ -241,8 +246,7 @@ def main():
                         toggle_node(node_id, node_map[node_id])
 
                         st.session_state.display_graph = merge_graphs(
-                            st.session_state.graph_data["nodes"],
-                            st.session_state.graph_data["edges"],
+                            st.session_state.display_graph["nodes"], 
                             st.session_state.expanded_nodes,
                             st.session_state.subgraphs
                         )
