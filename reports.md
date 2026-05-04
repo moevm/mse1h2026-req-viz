@@ -99,7 +99,6 @@
 
 ### Скринкасты
 Демонстрационный ролик залит:
-##### ЗАГРУЗИТЬ
 - [в репозиторий](./docs/iter_3.mp4)
 - [на Google-диск](https://drive.google.com/file/d/1lTX7IhQyJ2Izuo2QHZ10qyk0ZuRyM7fM/view?usp=sharing)
 
