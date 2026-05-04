@@ -76,6 +76,8 @@ def create_graph_visualization(
                 size=25,
                 color=get_node_color(n["type"]),
                 font={"color": "white", "size": 12},
+                x=n.get("x"),  
+                y=n.get("y"), 
                 title='Раскрыть'
             )
         )
@@ -102,6 +104,7 @@ def create_graph_visualization(
         height=550,
         width="100%",
         directed=True,
+        physics=False,
         nodeHighlightBehavior=True,
         highlightColor="#F7A7A6"  
     )

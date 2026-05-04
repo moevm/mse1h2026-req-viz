@@ -6,62 +6,50 @@ from services import BackendClient, NotFoundError, BackendError
 from report_generator import ReportGenerator
 from streamlit_agraph import agraph
 from visualization import create_graph_visualization
+import random
+import math
 
-#логика расширения графв
-def merge_graphs(base_nodes, base_edges, expanded_ids, subgraphs):
-    nodes = list(base_nodes)
-    edges = list(base_edges)
+def merge_graphs(current_display_nodes, expanded_ids, subgraphs):
+    nodes_map = {n["id"]: n for n in current_display_nodes}
+    
+    all_edges = []
+    seen_edges = set()
 
-    label_to_id = {n["label"]: n["id"] for n in nodes}
+    if st.session_state.graph_data:
+        for e in st.session_state.graph_data["edges"]:
+            key = (e["source"], e["target"], e.get("type"))
+            all_edges.append(e)
+            seen_edges.add(key)
 
-    seen_edges = {
-        (e["source"], e["target"], e.get("type"))
-        for e in edges
-    }
+    for parent_id in expanded_ids:
+        sub = subgraphs.get(parent_id)
+        if not sub: continue
 
-    for nid in expanded_ids:
-        sub = subgraphs.get(nid)
-        if not sub:
-            continue
+        parent_node = nodes_map.get(parent_id, {})
+        px, py = parent_node.get("x", 400), parent_node.get("y", 300)
 
         for n in sub["nodes"]:
-            label = n["label"]
-
-            if label not in label_to_id:
-                nodes.append(n)
-                label_to_id[label] = n["id"]
-
+            if n["id"] not in nodes_map:
+                n["x"] = px + random.randint(-150, 150)
+                n["y"] = py + random.randint(-150, 150)
+                nodes_map[n["id"]] = n
+            
         for e in sub["edges"]:
-            src_label = next(
-                n["label"]
-                for n in sub["nodes"]
-                if n["id"] == e["source"]
-            )
-
-            tgt_label = next(
-                n["label"]
-                for n in sub["nodes"]
-                if n["id"] == e["target"]
-            )
-
-            new_source = label_to_id[src_label]
-            new_target = label_to_id[tgt_label]
-
-            key = (
-                new_source,
-                new_target,
-                e.get("type")
-            )
-
+            key = (e["source"], e["target"], e.get("type"))
             if key not in seen_edges:
-                new_edge = e.copy()
-                new_edge["source"] = new_source
-                new_edge["target"] = new_target
-
-                edges.append(new_edge)
+                all_edges.append(e)
                 seen_edges.add(key)
 
-    return {"nodes": nodes, "edges": edges}
+    return {"nodes": list(nodes_map.values()), "edges": all_edges}
+
+def assign_initial_positions(nodes, center_x=400, center_y=300, radius=200):
+    """Располагает узлы по кругу при первом поиске."""
+    for i, node in enumerate(nodes):
+        if "x" not in node or "y" not in node:
+            angle = (2 * math.pi * i) / len(nodes)
+            node["x"] = center_x + radius * math.cos(angle)
+            node["y"] = center_y + radius * math.sin(angle)
+    return nodes
 
 def toggle_node(node_id, clean_label):
     """Переключает состояние узла: добавляет/удаляет подграф."""
@@ -143,6 +131,7 @@ def main():
             try:
                 with st.spinner("Построение графа зависимостей..."):
                     graph = backend.get_graph(search_query)
+                    graph["nodes"] = assign_initial_positions(graph["nodes"])
                     st.session_state.graph_data = graph
                     # сброс состояния для нового графа
                     st.session_state.display_graph = graph
@@ -241,8 +230,7 @@ def main():
                         toggle_node(node_id, node_map[node_id])
 
                         st.session_state.display_graph = merge_graphs(
-                            st.session_state.graph_data["nodes"],
-                            st.session_state.graph_data["edges"],
+                            st.session_state.display_graph["nodes"], 
                             st.session_state.expanded_nodes,
                             st.session_state.subgraphs
                         )
